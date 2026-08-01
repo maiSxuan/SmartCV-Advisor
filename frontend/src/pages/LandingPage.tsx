@@ -342,8 +342,6 @@ export default function LandingPage() {
                   'Không giới hạn lượt phân tích',
                   'Gợi ý chi tiết theo từng lỗi',
                   'Roadmap sau khi đánh giá CV',
-                  'Câu mẫu viết lại theo STAR',
-                  'Sao chép nhanh',
                   'Tất cả quyền lợi Free',
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2.5">
@@ -351,6 +349,19 @@ export default function LandingPage() {
                       <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
                     </svg>
                     {f}
+                  </li>
+                ))}
+                {[
+                  'Câu mẫu viết lại theo STAR',
+                  'Sao chép nhanh từng câu mẫu',
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2.5 text-slate-400">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 8v4l3 3" />
+                      <circle cx="12" cy="12" r="9" />
+                    </svg>
+                    <span className="flex-1">{f}</span>
+                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
                   </li>
                 ))}
               </ul>

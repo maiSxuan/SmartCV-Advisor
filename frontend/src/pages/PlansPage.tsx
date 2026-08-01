@@ -300,8 +300,14 @@ function CancelModal({ onConfirm, onCancel, loading, error }: {
 
 // ─────────────────────── Plan Cards ───────────────────────
 const FREE_FEATURES = ['3 lượt phân tích', 'Điểm tổng quan và 5 tiêu chí', 'Danh sách lỗi phổ biến', 'Gợi ý cải thiện tổng quan, không kèm roadmap', 'Lịch sử phân tích'];
-const PREMIUM_FEATURES = ['Không giới hạn lượt phân tích', 'Gợi ý chi tiết chuyên sâu', 'Roadmap sau khi đánh giá CV', 'Câu mẫu viết lại theo STAR', 'Sao chép nhanh từng câu mẫu', 'Tất cả quyền lợi Free'];
-const getCS = (c: '30' | '90') => [c === '30' ? 'Matching Score với JD (10 lượt)' : 'Matching Score với JD (20 lượt)', c === '30' ? 'AI Assistant (20 lượt)' : 'AI Assistant (40 lượt)', 'Tải xuống CV đã chỉnh sửa'];
+const PREMIUM_FEATURES = ['Không giới hạn lượt phân tích', 'Gợi ý chi tiết chuyên sâu', 'Roadmap sau khi đánh giá CV', 'Tất cả quyền lợi Free'];
+const getCS = (c: '30' | '90') => [
+  'Câu mẫu viết lại theo STAR',
+  'Sao chép nhanh từng câu mẫu',
+  c === '30' ? 'Matching Score với JD (10 lượt)' : 'Matching Score với JD (40 lượt)',
+  c === '30' ? 'AI Assistant (20 lượt)' : 'AI Assistant (80 lượt)',
+  'Tải xuống CV đã chỉnh sửa',
+];
 
 function FreeCard() {
   return (
