@@ -13,7 +13,7 @@ from fastapi import HTTPException, status
 from pymongo.errors import ConfigurationError, PyMongoError, ServerSelectionTimeoutError
 
 from app.services.cv_service import STANDARD_SECTIONS, format_file_size, normalize_search_text
-from app.services.gpt_service import evaluate_sections_with_gpt, normalize_list
+from app.services.gpt_service import SECTION_RUBRIC, evaluate_sections_with_gpt, normalize_list
 from app.services.role_dataset import load_default_roles
 
 
@@ -35,6 +35,320 @@ SECTION_WEIGHTS = {
     "Technical Skills": 35,
     "Certifications": 10,
 }
+
+SECTION_SUB_SCORE_BLUEPRINTS = {
+    "Professional Summary": [
+        {
+            "label": "Rõ ràng và đúng vai trò",
+            "max_score": 2.0,
+            "description": "Tóm tắt ngắn gọn, dễ hiểu và bám sát vị trí ứng tuyển.",
+        },
+        {
+            "label": "Định hướng chuyên môn",
+            "max_score": 3.0,
+            "description": "Thể hiện chuyên môn hoặc định hướng liên quan trực tiếp đến role.",
+        },
+        {
+            "label": "Kỹ năng trọng tâm",
+            "max_score": 3.0,
+            "description": "Nhắc đúng kỹ năng hoặc công nghệ quan trọng của vị trí mục tiêu.",
+        },
+        {
+            "label": "Impact hoặc điểm nổi bật",
+            "max_score": 2.0,
+            "description": "Có dấu hiệu về kinh nghiệm, kết quả, impact hoặc điểm mạnh đáng chú ý.",
+        },
+    ],
+    "Education": [
+        {
+            "label": "Thông tin học vấn chính",
+            "max_score": 4.0,
+            "description": "Có trường, ngành, bậc học và thời gian học rõ ràng.",
+        },
+        {
+            "label": "Môn học hoặc đồ án liên quan",
+            "max_score": 3.0,
+            "description": "Coursework, đồ án hoặc môn học hỗ trợ trực tiếp cho role.",
+        },
+        {
+            "label": "Thành tích học thuật",
+            "max_score": 2.0,
+            "description": "GPA, giải thưởng, học bổng hoặc thành tích học thuật nếu có.",
+        },
+        {
+            "label": "Độ dễ đọc",
+            "max_score": 1.0,
+            "description": "Thông tin được trình bày rõ ràng, không mơ hồ.",
+        },
+    ],
+    "Experience": [
+        {
+            "label": "Mức liên quan đến role",
+            "max_score": 6.0,
+            "description": "Kinh nghiệm gắn trực tiếp với vị trí mục tiêu.",
+        },
+        {
+            "label": "Trách nhiệm và kỹ năng quan trọng",
+            "max_score": 5.0,
+            "description": "Mô tả trách nhiệm có liên hệ với các skill_score quan trọng.",
+        },
+        {
+            "label": "Kết quả hoặc phạm vi",
+            "max_score": 4.0,
+            "description": "Có số liệu, impact, phạm vi hệ thống hoặc kết quả đo lường được.",
+        },
+        {
+            "label": "Ownership và ngữ cảnh",
+            "max_score": 3.0,
+            "description": "Thể hiện vai trò cá nhân, seniority, teamwork hoặc domain context.",
+        },
+        {
+            "label": "Thông tin timeline",
+            "max_score": 2.0,
+            "description": "Tên công ty, vị trí và thời gian làm việc rõ ràng.",
+        },
+    ],
+    "Projects": [
+        {
+            "label": "Độ liên quan của project",
+            "max_score": 5.0,
+            "description": "Project chứng minh đúng kỹ năng quan trọng của role.",
+        },
+        {
+            "label": "Độ sâu kỹ thuật",
+            "max_score": 4.0,
+            "description": "Có architecture, API, model, database, deployment hoặc chi tiết kỹ thuật tương đương.",
+        },
+        {
+            "label": "Kết quả và link kiểm chứng",
+            "max_score": 3.0,
+            "description": "Có metric, user, demo, GitHub hoặc deployment.",
+        },
+        {
+            "label": "Vai trò cá nhân và giải pháp",
+            "max_score": 3.0,
+            "description": "Nêu rõ bài toán, vai trò cá nhân và cách giải quyết.",
+        },
+    ],
+    "Technical Skills": [
+        {
+            "label": "Kỹ năng bắt buộc (skill_score 3)",
+            "max_score": 21.0,
+            "description": "Nhóm kỹ năng cốt lõi chiếm 60% điểm Technical Skills.",
+            "importance": 3,
+        },
+        {
+            "label": "Kỹ năng quan trọng (skill_score 2)",
+            "max_score": 10.5,
+            "description": "Nhóm kỹ năng hỗ trợ quan trọng chiếm 30% điểm Technical Skills.",
+            "importance": 2,
+        },
+        {
+            "label": "Nice-to-have (skill_score 1)",
+            "max_score": 3.5,
+            "description": "Nhóm kỹ năng cộng thêm chiếm 10% điểm Technical Skills.",
+            "importance": 1,
+        },
+    ],
+    "Certifications": [
+        {
+            "label": "Độ liên quan chứng chỉ",
+            "max_score": 5.0,
+            "description": "Chứng chỉ hoặc khóa học liên quan trực tiếp role.",
+        },
+        {
+            "label": "Bù vào skill gap",
+            "max_score": 3.0,
+            "description": "Chứng chỉ hỗ trợ kỹ năng bắt buộc hoặc quan trọng còn thiếu.",
+        },
+        {
+            "label": "Thông tin xác thực",
+            "max_score": 2.0,
+            "description": "Issuer, thời gian, credential hoặc link rõ ràng và đáng tin.",
+        },
+    ],
+}
+
+
+def get_section_criteria(section: str) -> list[str]:
+    return list(SECTION_RUBRIC.get(section, []))
+
+
+def clamp_float(value: Any, minimum: float, maximum: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = minimum
+    return max(minimum, min(maximum, number))
+
+
+def rounded_score(value: float) -> float:
+    return round(value, 1)
+
+
+def distribute_points(total_score: float, max_scores: list[float], weights: list[float] | None = None) -> list[float]:
+    if not max_scores:
+        return []
+
+    total_capacity = sum(max_scores)
+    target = max(0.0, min(total_capacity, total_score))
+    active_weights = [
+        max(0.0, float(weight))
+        for weight in (weights if weights and len(weights) == len(max_scores) else max_scores)
+    ]
+    if not any(active_weights):
+        active_weights = list(max_scores)
+
+    allocations = [0.0 for _ in max_scores]
+    remaining_indexes = set(range(len(max_scores)))
+    remaining_target = target
+
+    while remaining_indexes and remaining_target > 0:
+        weight_sum = sum(active_weights[index] for index in remaining_indexes)
+        if weight_sum <= 0:
+            break
+
+        capped_this_round = False
+        for index in list(remaining_indexes):
+            share = remaining_target * active_weights[index] / weight_sum
+            if share >= max_scores[index]:
+                allocations[index] = max_scores[index]
+                remaining_target -= max_scores[index]
+                remaining_indexes.remove(index)
+                capped_this_round = True
+
+        if not capped_this_round:
+            for index in remaining_indexes:
+                allocations[index] = remaining_target * active_weights[index] / weight_sum
+            break
+
+    rounded = [rounded_score(value) for value in allocations]
+    difference = rounded_score(target - sum(rounded))
+    if rounded and abs(difference) >= 0.1:
+        adjustable_indexes = [
+            index
+            for index, value in enumerate(rounded)
+            if 0 <= value + difference <= max_scores[index]
+        ]
+        if adjustable_indexes:
+            rounded[adjustable_indexes[-1]] = rounded_score(rounded[adjustable_indexes[-1]] + difference)
+    return rounded
+
+
+def normalize_section_sub_scores(raw_sub_scores: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw_sub_scores, list):
+        return []
+
+    sub_scores: list[dict[str, Any]] = []
+    for item in raw_sub_scores[:8]:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label", "")).strip()
+        max_score = clamp_float(item.get("max_score"), 0.0, 100.0)
+        if not label or max_score <= 0:
+            continue
+        score = clamp_float(item.get("score"), 0.0, max_score)
+        sub_scores.append(
+            {
+                "label": label,
+                "score": rounded_score(score),
+                "max_score": rounded_score(max_score),
+                "description": str(item.get("description", "")).strip(),
+            }
+        )
+    return sub_scores
+
+
+def build_technical_sub_scores(section_score: dict[str, Any], skill_assessment: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    blueprints = SECTION_SUB_SCORE_BLUEPRINTS["Technical Skills"]
+    max_scores = [float(item["max_score"]) for item in blueprints]
+    weights: list[float] = []
+    descriptions: list[str] = []
+
+    for blueprint in blueprints:
+        importance = int(blueprint["importance"])
+        group_items = [
+            item
+            for item in (skill_assessment or [])
+            if int(item.get("importance", 0)) == importance
+        ]
+        if not group_items:
+            weights.append(0.0)
+            descriptions.append(f"{blueprint['description']} Role hiện không có skill nhóm này trong dataset tham chiếu.")
+            continue
+
+        evidence_levels = [
+            int(clamp_float(item.get("evidence_level"), 0.0, 3.0))
+            for item in group_items
+        ]
+        matched = sum(1 for level in evidence_levels if level > 0)
+        strong = sum(1 for level in evidence_levels if level >= 3)
+        max_score = float(blueprint["max_score"])
+        weights.append(max_score * sum(evidence_levels) / (len(group_items) * 3))
+        descriptions.append(
+            f"{blueprint['description']} Có {matched}/{len(group_items)} kỹ năng được nhận diện; "
+            f"{strong} kỹ năng có bằng chứng mạnh trong Projects/Experience."
+        )
+
+    scores = distribute_points(float(section_score.get("score", 0) or 0), max_scores, weights)
+    return [
+        {
+            "label": str(blueprint["label"]),
+            "score": scores[index],
+            "max_score": rounded_score(max_scores[index]),
+            "description": descriptions[index],
+        }
+        for index, blueprint in enumerate(blueprints)
+    ]
+
+
+def build_section_sub_scores(
+    section_score: dict[str, Any],
+    skill_assessment: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    section = str(section_score.get("section", ""))
+    if section == "Technical Skills":
+        return build_technical_sub_scores(section_score, skill_assessment)
+
+    blueprints = SECTION_SUB_SCORE_BLUEPRINTS.get(section, [])
+    max_scores = [float(item["max_score"]) for item in blueprints]
+    scores = distribute_points(float(section_score.get("score", 0) or 0), max_scores)
+    return [
+        {
+            "label": str(blueprint["label"]),
+            "score": scores[index],
+            "max_score": rounded_score(max_scores[index]),
+            "description": str(blueprint["description"]),
+        }
+        for index, blueprint in enumerate(blueprints)
+    ]
+
+
+def enrich_section_score(
+    score: dict[str, Any],
+    skill_assessment: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    section = str(score.get("section", ""))
+    enriched = dict(score)
+    enriched["criteria"] = normalize_list(enriched.get("criteria")) or get_section_criteria(section)
+    enriched["sub_scores"] = normalize_section_sub_scores(enriched.get("sub_scores")) or build_section_sub_scores(
+        enriched,
+        skill_assessment,
+    )
+    enriched["strengths"] = normalize_list(enriched.get("strengths"))
+    enriched["weaknesses"] = normalize_list(enriched.get("weaknesses"))
+    enriched["suggestions"] = normalize_list(enriched.get("suggestions"))
+    return enriched
+
+
+def attach_section_sub_scores(
+    section_scores: dict[str, dict[str, Any]],
+    skill_assessment: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    return {
+        section: enrich_section_score(score, skill_assessment)
+        for section, score in section_scores.items()
+    }
 
 DEFAULT_ROLES = [
     {
@@ -699,6 +1013,7 @@ def score_section_presence(sections: dict[str, str]) -> dict[str, dict[str, Any]
             "max_score": max_score,
             "word_count": words,
             "comment": comment,
+            "criteria": get_section_criteria(section),
             "strengths": [],
             "weaknesses": [comment] if score < max_score else [],
             "suggestions": [],
@@ -737,6 +1052,9 @@ def apply_gpt_section_scores(
         normalized[section]["score"] = round(max(0, min(max_score, score)), 1)
         normalized[section]["max_score"] = int(raw_info.get("max_score") or max_score)
         normalized[section]["comment"] = raw_info.get("comment") or normalized[section]["comment"]
+        sub_scores = normalize_section_sub_scores(raw_info.get("sub_scores"))
+        if sub_scores:
+            normalized[section]["sub_scores"] = sub_scores
         normalized[section]["strengths"] = normalize_list(raw_info.get("strengths"))
         normalized[section]["weaknesses"] = normalize_list(raw_info.get("weaknesses"))
         normalized[section]["suggestions"] = normalize_list(raw_info.get("suggestions"))
@@ -1034,6 +1352,7 @@ def analyze_sections(
     )
     gpt_payload = gpt_review.payload if gpt_review else None
     section_scores = apply_gpt_section_scores(section_scores, gpt_payload)
+    section_scores = attach_section_sub_scores(section_scores, skill_assessment)
     criteria_scores = compute_criteria_scores(
         sections=sections,
         section_scores=section_scores,
@@ -1332,9 +1651,16 @@ def legacy_criteria_scores(result: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def legacy_section_scores(result: dict[str, Any]) -> list[dict[str, Any]]:
+def legacy_section_scores(
+    result: dict[str, Any],
+    skill_assessment: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     if result.get("SectionScores"):
-        return result["SectionScores"]
+        return [
+            enrich_section_score(section_score, skill_assessment)
+            for section_score in result["SectionScores"]
+            if isinstance(section_score, dict)
+        ]
     field_map = {
         "Professional Summary": "DiemPhanGT",
         "Education": "DiemTDHV",
@@ -1350,6 +1676,18 @@ def legacy_section_scores(result: dict[str, Any]) -> list[dict[str, Any]]:
             "max_score": SECTION_WEIGHTS[section],
             "word_count": None,
             "comment": "Điểm được chuyển đổi từ dữ liệu phân tích đã lưu.",
+            "criteria": get_section_criteria(section),
+            "sub_scores": build_section_sub_scores(
+                {
+                    "section": section,
+                    "score": float(result.get(field_name, 0) or 0),
+                    "max_score": SECTION_WEIGHTS[section],
+                },
+                skill_assessment,
+            ),
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": [],
         }
         for section, field_name in field_map.items()
     ]
@@ -1444,6 +1782,8 @@ def format_analysis_result(
 
     created_at = result.get("ThoiDiemPT")
     technical_assessment = legacy_technical_skill_assessment(result)
+    raw_skill_assessment = result.get("SkillAssessment")
+    skill_assessment = raw_skill_assessment if isinstance(raw_skill_assessment, list) else []
     return {
         "analysis_id": result.get("_id"),
         "cv_id": cv.get("_id"),
@@ -1459,8 +1799,8 @@ def format_analysis_result(
         "classification": classification,
         "summary": summary,
         "criteria_scores": legacy_criteria_scores(result),
-        "section_scores": legacy_section_scores(result),
-        "skill_assessment": result.get("SkillAssessment") or [],
+        "section_scores": legacy_section_scores(result, skill_assessment),
+        "skill_assessment": skill_assessment,
         "technical_skill_assessment": technical_assessment,
         "roadmap_recommendation": legacy_roadmap_recommendation(result, role, technical_assessment) if can_view_roadmap else [],
         "readiness_level": result.get("ReadinessLevel") or classification,

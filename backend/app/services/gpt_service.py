@@ -509,6 +509,13 @@ Mỗi phase cần có:
 CV ĐÃ TÁCH SECTION:
 {build_sections_text(sections, section_weights)}
 
+YÊU CẦU ĐIỂM THÀNH PHẦN:
+- Trong từng object của section_scores, thêm sub_scores để giải thích điểm nhỏ bên dưới section.
+- sub_scores phải có label, score, max_score, description.
+- label phải bám theo RUBRIC SECTION. score là điểm đạt được của tiêu chí nhỏ, max_score là điểm tối đa của tiêu chí nhỏ.
+- Với Technical Skills, sub_scores bắt buộc gồm: Kỹ năng bắt buộc (skill_score 3), Kỹ năng quan trọng (skill_score 2), Nice-to-have (skill_score 1).
+- Tổng sub_scores của một section nên xấp xỉ score của section và không vượt max_score của section.
+
 Trả về duy nhất JSON hợp lệ, không markdown, theo schema:
 {{
   "section_scores": {{
@@ -519,7 +526,8 @@ Trả về duy nhất JSON hợp lệ, không markdown, theo schema:
       "comment": "...",
       "strengths": ["..."],
       "weaknesses": ["..."],
-      "suggestions": ["..."]
+      "suggestions": ["..."],
+      "sub_scores": [{{"label": "...", "score": 0, "max_score": 0, "description": "..."}}]
     }},
     "Education": {{
       "raw_score": 0,
@@ -528,7 +536,8 @@ Trả về duy nhất JSON hợp lệ, không markdown, theo schema:
       "comment": "...",
       "strengths": ["..."],
       "weaknesses": ["..."],
-      "suggestions": ["..."]
+      "suggestions": ["..."],
+      "sub_scores": [{{"label": "...", "score": 0, "max_score": 0, "description": "..."}}]
     }},
     "Experience": {{
       "raw_score": 0,
@@ -537,7 +546,8 @@ Trả về duy nhất JSON hợp lệ, không markdown, theo schema:
       "comment": "...",
       "strengths": ["..."],
       "weaknesses": ["..."],
-      "suggestions": ["..."]
+      "suggestions": ["..."],
+      "sub_scores": [{{"label": "...", "score": 0, "max_score": 0, "description": "..."}}]
     }},
     "Projects": {{
       "raw_score": 0,
@@ -546,7 +556,8 @@ Trả về duy nhất JSON hợp lệ, không markdown, theo schema:
       "comment": "...",
       "strengths": ["..."],
       "weaknesses": ["..."],
-      "suggestions": ["..."]
+      "suggestions": ["..."],
+      "sub_scores": [{{"label": "...", "score": 0, "max_score": 0, "description": "..."}}]
     }},
     "Technical Skills": {{
       "raw_score": 0,
@@ -555,7 +566,8 @@ Trả về duy nhất JSON hợp lệ, không markdown, theo schema:
       "comment": "...",
       "strengths": ["..."],
       "weaknesses": ["..."],
-      "suggestions": ["..."]
+      "suggestions": ["..."],
+      "sub_scores": [{{"label": "Kỹ năng bắt buộc (skill_score 3)", "score": 0, "max_score": 21, "description": "..."}}]
     }},
     "Certifications": {{
       "raw_score": 0,
@@ -564,7 +576,8 @@ Trả về duy nhất JSON hợp lệ, không markdown, theo schema:
       "comment": "...",
       "strengths": ["..."],
       "weaknesses": ["..."],
-      "suggestions": ["..."]
+      "suggestions": ["..."],
+      "sub_scores": [{{"label": "...", "score": 0, "max_score": 0, "description": "..."}}]
     }}
   }},
   "technical_skill_assessment": {{
