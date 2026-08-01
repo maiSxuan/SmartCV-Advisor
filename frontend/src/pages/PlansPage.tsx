@@ -309,7 +309,6 @@ function FreeCard() {
       <div className="absolute right-6 top-6 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">Gói hiện tại</div>
       <h3 className="text-xl font-bold text-slate-900">Free</h3>
       <div className="mt-4"><span className="text-5xl font-extrabold tracking-tight text-slate-900">đ0</span></div>
-      <p className="mt-2 text-sm font-medium text-slate-400">Mãi mãi miễn phí</p>
       <ul className="mb-8 mt-8 flex-1 space-y-4 text-sm font-medium text-slate-700">
         {FREE_FEATURES.map((f, i) => (
           <li key={i} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>

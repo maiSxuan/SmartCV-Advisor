@@ -1,106 +1,8 @@
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiService } from '../services/api';
 
-function isValidEmail(email: string) {
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
-}
-
-// Modal nhập email để Smart-route Guest → Register hoặc Login
-function EmailCheckModal({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [checking, setChecking] = useState(false);
-  const [error, setError] = useState('');
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    if (!isValidEmail(email)) {
-      setError('Vui lòng nhập địa chỉ email hợp lệ.');
-      return;
-    }
-    try {
-      setChecking(true);
-      const result = await apiService.checkEmail(email.trim());
-      const search = new URLSearchParams({ email: email.trim() });
-      if (result.data.exists) {
-        // Email đã có tài khoản → đăng nhập
-        navigate(`/login?${search.toString()}`);
-      } else {
-        // Email chưa có → đăng ký
-        navigate(`/register?${search.toString()}`);
-      }
-    } catch {
-      // Nếu API lỗi, mặc định chuyển sang trang đăng ký
-      const search = new URLSearchParams({ email: email.trim() });
-      navigate(`/register?${search.toString()}`);
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Bắt đầu miễn phí</h2>
-            <p className="mt-1 text-sm text-slate-500">Nhập email để tiếp tục</p>
-          </div>
-          <button
-            aria-label="Đóng"
-            className="grid h-9 w-9 place-items-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            type="button"
-            onClick={onClose}
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-              <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">Địa chỉ email</span>
-            <input
-              autoFocus
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-              placeholder="email@example.com"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-
-          {error && (
-            <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-              {error}
-            </p>
-          )}
-
-          <button
-            className="h-12 w-full rounded-2xl bg-blue-600 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-            disabled={!isValidEmail(email) || checking}
-            type="submit"
-          >
-            {checking ? 'Đang kiểm tra...' : 'Tiếp tục →'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-xs text-slate-400">
-          Miễn phí · Không cần thẻ tín dụng · Bảo mật dữ liệu
-        </p>
-      </div>
-    </div>
-  );
-}
 
 export default function LandingPage() {
-  const [showEmailModal, setShowEmailModal] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -128,7 +30,7 @@ export default function LandingPage() {
           <button
             className="h-9 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-95"
             type="button"
-            onClick={() => setShowEmailModal(true)}
+            onClick={() => navigate('/register')}
           >
             Phân tích CV miễn phí
           </button>
@@ -172,7 +74,7 @@ export default function LandingPage() {
               <button
                 className="group inline-flex h-13 items-center gap-2.5 rounded-2xl bg-blue-600 px-8 text-base font-bold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/30 active:scale-95"
                 type="button"
-                onClick={() => setShowEmailModal(true)}
+                onClick={() => navigate('/register')}
               >
                 Phân tích CV miễn phí
                 <svg viewBox="0 0 20 20" className="h-5 w-5 transition group-hover:translate-x-0.5" fill="currentColor" aria-hidden="true">
@@ -417,7 +319,7 @@ export default function LandingPage() {
               <button
                 className="mt-8 h-12 w-full rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-600 transition hover:bg-blue-100"
                 type="button"
-                onClick={() => setShowEmailModal(true)}
+                onClick={() => navigate('/register')}
               >
                 Đăng ký miễn phí
               </button>
@@ -455,7 +357,7 @@ export default function LandingPage() {
               <button
                 className="mt-8 h-12 w-full rounded-2xl bg-blue-600 font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md"
                 type="button"
-                onClick={() => setShowEmailModal(true)}
+                onClick={() => navigate('/register')}
               >
                 Xem chi tiết Premium
               </button>
@@ -475,7 +377,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-5">
             <button
               type="button"
-              onClick={() => setShowEmailModal(true)}
+              onClick={() => navigate('/register')}
               className="hover:text-blue-600 transition-colors"
             >
               Phân tích CV miễn phí
@@ -488,8 +390,6 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Email check modal */}
-      {showEmailModal && <EmailCheckModal onClose={() => setShowEmailModal(false)} />}
     </div>
   );
 }

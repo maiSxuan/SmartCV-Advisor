@@ -40,9 +40,9 @@ export default function HistoryPage() {
     <div className="mx-auto max-w-5xl px-5 py-10">
       <h1 className="text-3xl font-bold text-slate-900 mb-8">Lịch sử phân tích</h1>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-8">
-        <div className="relative flex-1">
+      {/* Search */}
+      <div className="mb-8">
+        <div className="relative">
           <input 
             type="text" 
             placeholder="Tìm theo tên file..." 
@@ -50,9 +50,6 @@ export default function HistoryPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-12 rounded-2xl border border-slate-200 pl-4 pr-10 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
-        </div>
-        <div className="w-full sm:w-48 h-12 rounded-2xl border border-slate-200 bg-white">
-          {/* Placeholder for future filter */}
         </div>
       </div>
 

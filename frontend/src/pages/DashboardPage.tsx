@@ -148,7 +148,13 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h2 className="text-xl font-bold text-slate-900">Phân tích gần đây</h2>
           {/* We omit Xem tất cả if this page is essentially the history view */}
-          <span className="text-blue-600 font-medium hover:underline cursor-pointer text-sm">Xem tất cả</span>
+          <button
+            type="button"
+            onClick={() => navigate('/history')}
+            className="text-blue-600 font-medium hover:underline cursor-pointer text-sm"
+          >
+            Xem tất cả
+          </button>
         </div>
 
         {history.length === 0 ? (

@@ -188,10 +188,10 @@ function AppShell() {
       <div className="lg:pl-72">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-5 backdrop-blur">
           <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
-            <Link to="/" className="hover:text-blue-600">
+            {/* <Link to="/" className="hover:text-blue-600">
               Trang chủ
-            </Link>
-            <span>/</span>
+            </Link> */}
+            {/* <span>/</span> */}
             <span className="text-slate-700">{pageTitle}</span>
           </div>
           <div className="flex items-center gap-3">
