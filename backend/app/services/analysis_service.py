@@ -143,7 +143,142 @@ SKILL_KEYWORD_MAP = {
     "api testing": ["api testing", "postman"],
     "automation testing": ["automation testing", "selenium", "cypress", "playwright"],
     "bug tracking": ["bug tracking", "jira"],
+    "ai demo uis (streamlit/gradio/chainlit)": ["streamlit", "gradio", "chainlit"],
+    "machine learning theory & scikit-learn": ["machine learning", "scikit-learn", "scikit learn", "sklearn"],
+    "deep learning frameworks (pytorch)": ["pytorch", "torch"],
+    "deep learning frameworks (tensorflow/keras)": ["tensorflow", "keras"],
+    "generative ai, llms & prompt engineering": [
+        "generative ai",
+        "llm",
+        "llms",
+        "large language model",
+        "large language models",
+        "prompt engineering",
+        "openai api",
+        "anthropic api",
+        "claude api",
+        "gemini api",
+    ],
+    "retrieval-augmented generation (rag) systems": [
+        "rag",
+        "retrieval augmented generation",
+        "retrieval-augmented generation",
+        "vector embedding",
+        "vector embeddings",
+        "semantic search",
+    ],
+    "agentic ai & multi-agent frameworks (langchain/autogen)": [
+        "agentic ai",
+        "multi-agent",
+        "multi agent",
+        "langchain",
+        "langgraph",
+        "llamaindex",
+        "llama index",
+        "autogen",
+        "crewai",
+    ],
+    "ai evaluation, validation & benchmarking": [
+        "ai evaluation",
+        "model evaluation",
+        "llm evaluation",
+        "evals",
+        "benchmarking",
+        "validation",
+    ],
+    "ai security, jailbreak defense & data privacy": [
+        "ai security",
+        "jailbreak defense",
+        "prompt injection",
+        "data privacy",
+        "llm security",
+    ],
+    "ai ethics, governance & bias mitigation": [
+        "ai ethics",
+        "ai governance",
+        "bias mitigation",
+        "responsible ai",
+    ],
 }
+
+GENERIC_SKILL_KEYWORD_STOPWORDS = {
+    "core",
+    "async",
+    "performance optimization",
+    "data extraction",
+    "querying",
+    "frameworks",
+    "systems",
+    "platforms",
+    "tools",
+    "engineering",
+    "theory",
+    "validation",
+}
+
+AI_TOOL_ONLY_TERMS = [
+    "chatgpt",
+    "claude",
+    "codex",
+    "gemini",
+    "copilot",
+    "perplexity",
+    "bard",
+]
+
+AI_ENGINEERING_EVIDENCE_TERMS = [
+    "prompt engineering",
+    "system prompt",
+    "openai api",
+    "anthropic api",
+    "claude api",
+    "gemini api",
+    "llm api",
+    "large language model",
+    "rag",
+    "retrieval augmented generation",
+    "retrieval-augmented generation",
+    "embedding",
+    "embeddings",
+    "vector database",
+    "vector databases",
+    "langchain",
+    "langgraph",
+    "llamaindex",
+    "llama index",
+    "autogen",
+    "crewai",
+    "fine tuning",
+    "fine-tuning",
+    "model serving",
+    "model evaluation",
+    "llm evaluation",
+    "ai evaluation",
+    "streamlit",
+    "gradio",
+    "chainlit",
+    "prompt injection",
+    "jailbreak defense",
+    "llm security",
+    "ai governance",
+    "responsible ai",
+    "bias mitigation",
+]
+
+AI_TOOL_SENSITIVE_SKILL_MARKERS = [
+    "generative ai",
+    "llms",
+    "prompt engineering",
+    "retrieval-augmented generation",
+    "rag",
+    "agentic ai",
+    "multi-agent",
+    "ai demo uis",
+    "ai evaluation",
+    "ai security",
+    "ai ethics",
+    "ai governance",
+]
 
 ROLE_ICON_LABELS = {
     "NG_FRONTEND": "FE",
@@ -276,15 +411,54 @@ async def get_role_by_id(db: Any, role_id: str) -> dict[str, Any]:
 
 def skill_to_keywords(skill_name: str) -> list[str]:
     normalized = normalize_search_text(skill_name)
-    cleaned = re.sub(r"\(.*?\)", "", normalized)
-    words = re.findall(r"[a-z0-9+#.]+", cleaned)
-    mapped = SKILL_KEYWORD_MAP.get(normalized, [])
-    return sorted({keyword for keyword in [*mapped, *words, normalized] if len(keyword) > 1})
+    mapped = SKILL_KEYWORD_MAP.get(normalized)
+    if mapped:
+        return sorted({keyword for keyword in mapped if len(keyword) > 1})
+
+    base = re.sub(r"\(.*?\)", " ", normalized)
+    parenthetical_parts = " ".join(re.findall(r"\((.*?)\)", normalized))
+    candidates = [normalized, base]
+    candidates.extend(re.split(r"[/,&]|\band\b|\bor\b", base))
+    candidates.extend(re.split(r"[/,&]|\band\b|\bor\b", parenthetical_parts))
+
+    keywords: set[str] = set()
+    for candidate in candidates:
+        cleaned = re.sub(r"\s+", " ", candidate).strip(" -")
+        if not cleaned or cleaned in GENERIC_SKILL_KEYWORD_STOPWORDS:
+            continue
+        if " " not in cleaned and cleaned in GENERIC_SKILL_KEYWORD_STOPWORDS:
+            continue
+        if len(cleaned) > 1:
+            keywords.add(cleaned)
+    return sorted(keywords)
 
 
 def contains_keyword(text: str, keyword: str) -> bool:
     pattern = r"(?<![a-z0-9])" + re.escape(keyword.lower()) + r"(?![a-z0-9])"
     return re.search(pattern, text.lower()) is not None
+
+
+def is_ai_tool_sensitive_skill(skill_name: str) -> bool:
+    normalized = normalize_search_text(skill_name)
+    return any(marker in normalized for marker in AI_TOOL_SENSITIVE_SKILL_MARKERS)
+
+
+def has_ai_engineering_evidence(text: str) -> bool:
+    normalized = normalize_search_text(text)
+    return any(contains_keyword(normalized, term) for term in AI_ENGINEERING_EVIDENCE_TERMS)
+
+
+def is_ai_tool_only_evidence(skill_name: str, text: str, matched_keywords: list[str]) -> bool:
+    if not is_ai_tool_sensitive_skill(skill_name):
+        return False
+
+    normalized_text = normalize_search_text(text)
+    has_named_tool = any(contains_keyword(normalized_text, term) for term in AI_TOOL_ONLY_TERMS)
+    has_engineering_evidence = has_ai_engineering_evidence(normalized_text)
+    weak_ai_keywords = {"ai", "llm", "llms", "generative ai"}
+    matched_keyword_set = {normalize_search_text(keyword) for keyword in matched_keywords}
+
+    return (has_named_tool or bool(matched_keyword_set & weak_ai_keywords)) and not has_engineering_evidence
 
 
 def section_word_count(sections: dict[str, str], section_name: str) -> int:
@@ -301,11 +475,21 @@ def detect_skill_evidence(sections: dict[str, str], role: dict[str, Any]) -> lis
     for skill_config in role.get("skills", []):
         skill = skill_config["skill"]
         keywords = skill_to_keywords(skill)
-        found_sections = [
-            section
+        section_matches = {
+            section: [
+                keyword
+                for keyword in keywords
+                if contains_keyword(content, keyword)
+            ]
             for section, content in normalized_sections.items()
-            if any(contains_keyword(content, keyword) for keyword in keywords)
-        ]
+        }
+        found_sections = [section for section, matches in section_matches.items() if matches]
+        matched_keywords = sorted({keyword for matches in section_matches.values() for keyword in matches})
+        evidence_text = "\n".join(sections.get(section, "") for section in found_sections)
+
+        if found_sections and is_ai_tool_only_evidence(skill, evidence_text, matched_keywords):
+            found_sections = []
+            matched_keywords = []
 
         evidence_level = 0
         if found_sections:
@@ -322,6 +506,7 @@ def detect_skill_evidence(sections: dict[str, str], role: dict[str, Any]) -> lis
                 "importance": int(skill_config.get("importance", 0)),
                 "evidence_level": evidence_level,
                 "found_sections": found_sections,
+                "matched_keywords": matched_keywords,
                 "status": "matched" if evidence_level > 0 else "missing",
             }
         )
@@ -367,9 +552,25 @@ def build_technical_skill_assessment(skill_assessment: list[dict[str, Any]]) -> 
     }
 
 
+def filter_ai_tool_only_skill_labels(values: list[str], sections: dict[str, str] | None) -> list[str]:
+    if not sections:
+        return values
+
+    cv_text = "\n".join(sections.values())
+    if has_ai_engineering_evidence(cv_text):
+        return values
+
+    return [
+        value
+        for value in values
+        if not is_ai_tool_sensitive_skill(value)
+    ]
+
+
 def normalize_technical_skill_assessment(
     gpt_payload: dict[str, Any] | None,
     fallback: dict[str, list[str]],
+    sections: dict[str, str] | None = None,
 ) -> dict[str, list[str]]:
     if not gpt_payload or not isinstance(gpt_payload.get("technical_skill_assessment"), dict):
         return fallback
@@ -386,6 +587,8 @@ def normalize_technical_skill_assessment(
         "do_not_penalize_missing_skills",
     ]:
         values = normalize_list(raw.get(key))
+        if key in {"core_skills_found", "supporting_skills_found", "nice_to_have_skills_found"}:
+            values = filter_ai_tool_only_skill_labels(values, sections)
         if values:
             normalized[key] = values
 
@@ -846,7 +1049,7 @@ def analyze_sections(
     if gpt_payload and isinstance(gpt_payload.get("overall_comment"), str) and gpt_payload["overall_comment"].strip():
         summary = gpt_payload["overall_comment"].strip()
 
-    technical_assessment = normalize_technical_skill_assessment(gpt_payload, local_technical_assessment)
+    technical_assessment = normalize_technical_skill_assessment(gpt_payload, local_technical_assessment, sections)
     roadmap_recommendation = normalize_roadmap_recommendation(
         gpt_payload,
         build_fallback_roadmap(role=role, technical_assessment=technical_assessment),
