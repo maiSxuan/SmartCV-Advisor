@@ -19,7 +19,7 @@ OPENAI_IMAGE_MODEL = os.getenv("OPENAI_IMAGE_MODEL", OPENAI_MODEL)
 OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "30"))
 GPT_SECTION_PROMPT_VERSION = "cv-section-parser-gpt-v1"
 GPT_IMAGE_PROMPT_VERSION = "cv-image-parser-gpt-v1"
-GPT_REVIEW_PROMPT_VERSION = "cv-role-review-notebook-rubric-v2"
+GPT_REVIEW_PROMPT_VERSION = "cv-role-review-notebook-rubric-v3"
 
 IMPORTANCE_LABELS = {
     0: "Không cần có",
@@ -64,6 +64,7 @@ SECTION_RUBRIC = {
         "Chấm theo skill_scores của role: 3 = bắt buộc, 2 = quan trọng, 1 = nice to have, 0 = không tính điểm.",
         "Skill_score 3 chiếm 60% điểm Technical Skills, skill_score 2 chiếm 30%, skill_score 1 chiếm 10%.",
         "Mức bằng chứng cho từng skill: 0 = không thấy; 1 = nhắc mơ hồ; 2 = liệt kê rõ trong skills/cert/course; 3 = có dùng trong project/experience với ngữ cảnh cụ thể.",
+        "Tên sản phẩm AI như ChatGPT, Claude, Codex, Gemini chỉ thể hiện biết dùng công cụ, không tự động tính là skill Generative AI/LLM/Prompt Engineering nếu thiếu bằng chứng kỹ thuật.",
         "Nếu thiếu section Technical Skills nhưng skill xuất hiện ở Experience/Projects, vẫn ghi nhận nhưng điểm Technical Skills tối đa 70%.",
     ],
     "Certifications": [
@@ -468,6 +469,13 @@ QUY TẮC CHẤM TECHNICAL SKILLS:
    - Có impact, metric, deployment, users, scale, hoặc business outcome.
    - Kỹ năng technical được gắn với vai trò cá nhân rõ ràng.
    Sau đó final_score vẫn cap về 35.
+
+QUY TẮC CHẶN FALSE POSITIVE CHO AI TOOLS:
+- Các tên sản phẩm/công cụ AI như ChatGPT, Claude, Codex, Gemini, Copilot, Perplexity chỉ chứng minh ứng viên biết sử dụng công cụ, không tự động được tính là skill technical mạnh.
+- Nếu CV chỉ liệt kê các công cụ trên trong Technical Skills/Tools/Professional Summary, hãy đặt evidence_level = 0 và KHÔNG đưa vào core_skills_found, supporting_skills_found hoặc nice_to_have_skills_found cho các skill như:
+  Generative AI, LLMs & Prompt Engineering; Retrieval-Augmented Generation (RAG) Systems; Agentic AI & Multi-Agent Frameworks; AI Demo UIs; AI Evaluation; AI Security/Governance.
+- Chỉ ghi nhận các skill AI/LLM trên khi CV có bằng chứng kỹ thuật rõ ràng, ví dụ: tích hợp OpenAI/Anthropic/Gemini API, thiết kế prompt/system prompt, xây RAG/vector embeddings/vector database, dùng LangChain/LangGraph/LlamaIndex/AutoGen, fine-tuning, model serving, model evaluation, hoặc project/experience mô tả vai trò cá nhân khi xây tính năng AI.
+- Không suy diễn "dùng ChatGPT/Claude/Codex/Gemini" thành Machine Learning, Deep Learning, LLM Engineering, Prompt Engineering, RAG hoặc Agentic AI.
 
 QUY TẮC CHẤM CÁC SECTION KHÁC:
 - Professional Summary: ưu tiên định vị đúng role, nêu core skills, impact, mục tiêu nghề nghiệp rõ.
