@@ -156,9 +156,18 @@ export interface SectionScore {
   max_score: number;
   word_count: number | null;
   comment: string;
+  criteria?: string[];
+  sub_scores?: SectionSubScore[];
   strengths?: string[];
   weaknesses?: string[];
   suggestions?: string[];
+}
+
+export interface SectionSubScore {
+  label: string;
+  score: number;
+  max_score: number;
+  description: string;
 }
 
 export interface SkillEvidence {
