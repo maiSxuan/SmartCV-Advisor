@@ -431,40 +431,6 @@ function roadmapSkillTopics(phase: RoadmapPhase, skill: string) {
   return topics?.length ? topics : fallbackSkillTopics(skill);
 }
 
-function SectionScoreBar({
-  item,
-  selected,
-  onSelect,
-}: {
-  item: SectionScore;
-  selected: boolean;
-  onSelect: (section: string) => void;
-}) {
-  const percentage = item.max_score > 0 ? Math.max(0, Math.min(100, Math.round((item.score / item.max_score) * 100))) : 0;
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      className={[
-        'w-full rounded-xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-200',
-        selected ? 'border-blue-200 bg-blue-50/70' : 'border-transparent hover:border-slate-200 hover:bg-slate-50',
-      ].join(' ')}
-      onClick={() => onSelect(item.section)}
-    >
-      <div className="mb-2 flex items-center justify-between text-sm">
-        <span className="font-medium text-slate-600">{item.section}</span>
-        <span className={`font-bold ${scoreTextColor(percentage)}`}>
-          {item.score}/{item.max_score}
-        </span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-        <div className={`h-full rounded-full ${scoreBarColor(percentage)}`} style={{ width: `${percentage}%` }} />
-      </div>
-      <p className="mt-2 text-xs leading-5 text-slate-500">{item.comment}</p>
-    </button>
-  );
-}
-
 type NormalizedSubScore = {
   label: string;
   score: number;
@@ -521,47 +487,121 @@ function getSectionSubScores(item: SectionScore): NormalizedSubScore[] {
   return normalizeSubScoresToSection(item, fallbackSubScores);
 }
 
-function SectionSubScorePanel({ item }: { item: SectionScore }) {
+function SectionScoreBar({
+  item,
+  isOpen,
+  onToggle,
+}: {
+  item: SectionScore;
+  isOpen: boolean;
+  onToggle: (section: string) => void;
+}) {
+  const percentage = item.max_score > 0 ? Math.max(0, Math.min(100, Math.round((item.score / item.max_score) * 100))) : 0;
   const subScores = getSectionSubScores(item);
 
   return (
-    <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-500">Điểm thành phần</p>
-          <h3 className="mt-1 text-base font-extrabold text-blue-700">{item.section}</h3>
+    <div
+      className={[
+        'rounded-2xl border transition-all duration-200 overflow-hidden',
+        isOpen
+          ? 'border-blue-200 bg-white shadow-sm ring-1 ring-blue-100'
+          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
+      ].join(' ')}
+    >
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        className="w-full p-4 text-left focus:outline-none"
+        onClick={() => onToggle(item.section)}
+      >
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="font-semibold text-slate-800">{item.section}</span>
+          <div className="flex items-center gap-2">
+            <span className={`font-bold ${scoreTextColor(percentage)}`}>
+              {formatScoreValue(item.score)}/{formatScoreValue(item.max_score)}
+            </span>
+            <svg
+              viewBox="0 0 20 20"
+              className={[
+                'h-4 w-4 shrink-0 transition-transform duration-200',
+                isOpen ? 'rotate-180 text-blue-600' : 'text-slate-400',
+              ].join(' ')}
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path d="m5 8 5 5 5-5" />
+            </svg>
+          </div>
         </div>
-        <span className="text-sm font-extrabold text-blue-700">
-          {formatScoreValue(item.score)}/{formatScoreValue(item.max_score)}
-        </span>
-      </div>
+        <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className={`h-full rounded-full ${scoreBarColor(percentage)}`} style={{ width: `${percentage}%` }} />
+        </div>
+        {item.comment && <p className="mt-2 text-xs leading-5 text-slate-500">{item.comment}</p>}
+      </button>
 
-      {subScores.length > 0 ? (
-        <div className="mt-4 space-y-3">
-          {subScores.map((subScore) => {
-            const percentage =
-              subScore.max_score > 0 ? Math.max(0, Math.min(100, Math.round((subScore.score / subScore.max_score) * 100))) : 0;
-            return (
-              <article key={subScore.label} className="rounded-xl bg-white px-4 py-3 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <h4 className="text-sm font-bold leading-5 text-slate-800">{subScore.label}</h4>
-                  <span className={`shrink-0 text-sm font-extrabold ${scoreTextColor(percentage)}`}>
-                    {formatScoreValue(subScore.score)}/{formatScoreValue(subScore.max_score)}
-                  </span>
+      <div
+        className={[
+          'grid transition-all duration-300 ease-out',
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none',
+        ].join(' ')}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 sm:p-5">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-500">Điểm thành phần</p>
+                  <h3 className="mt-0.5 text-base font-extrabold text-blue-700">{item.section}</h3>
                 </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className={`h-full rounded-full ${scoreBarColor(percentage)}`} style={{ width: `${percentage}%` }} />
+                <span className="text-sm font-extrabold text-blue-700">
+                  {formatScoreValue(item.score)}/{formatScoreValue(item.max_score)}
+                </span>
+              </div>
+
+              {subScores.length > 0 ? (
+                <div className="mt-3.5 space-y-2.5">
+                  {subScores.map((subScore) => {
+                    const subPercentage =
+                      subScore.max_score > 0
+                        ? Math.max(0, Math.min(100, Math.round((subScore.score / subScore.max_score) * 100)))
+                        : 0;
+                    return (
+                      <article
+                        key={subScore.label}
+                        className="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <h4 className="text-sm font-bold leading-5 text-slate-800">{subScore.label}</h4>
+                          <span className={`shrink-0 text-sm font-extrabold ${scoreTextColor(subPercentage)}`}>
+                            {formatScoreValue(subScore.score)}/{formatScoreValue(subScore.max_score)}
+                          </span>
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className={`h-full rounded-full ${scoreBarColor(subPercentage)}`}
+                            style={{ width: `${subPercentage}%` }}
+                          />
+                        </div>
+                        {subScore.description && (
+                          <p className="mt-2 text-xs leading-5 text-slate-500">{subScore.description}</p>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
-                {subScore.description && <p className="mt-2 text-xs leading-5 text-slate-500">{subScore.description}</p>}
-              </article>
-            );
-          })}
+              ) : (
+                <p className="mt-3 rounded-xl bg-white px-4 py-3 text-sm leading-6 text-slate-500 shadow-sm">
+                  Chưa có điểm thành phần cho section này.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-      ) : (
-        <p className="mt-4 rounded-xl bg-white px-4 py-3 text-sm leading-6 text-slate-500 shadow-sm">
-          Chưa có điểm thành phần cho section này.
-        </p>
-      )}
+      </div>
     </div>
   );
 }
@@ -843,7 +883,7 @@ export default function AnalysisResultPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedSectionName, setSelectedSectionName] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     const fetchResult = async () => {
@@ -853,7 +893,10 @@ export default function AnalysisResultPage() {
       try {
         const response = await apiService.getAnalysisResult(id);
         setResult(response.data);
-        setSelectedSectionName(response.data.section_scores[0]?.section ?? null);
+        const firstSection = response.data.section_scores[0]?.section;
+        if (firstSection) {
+          setOpenSections(new Set([firstSection]));
+        }
       } catch (error) {
         setErrorMessage(getApiErrorMessage(error));
       } finally {
@@ -897,18 +940,28 @@ export default function AnalysisResultPage() {
     ? new Date(result.created_at).toLocaleDateString('vi-VN')
     : 'Chưa có ngày';
   const activeSectionScore = result.section_scores.find((section) => section.section === activeTab);
-  const selectedSectionScore =
-    result.section_scores.find((section) => section.section === selectedSectionName) ?? result.section_scores[0];
 
-  const handleSectionScoreSelect = (section: string) => {
-    setSelectedSectionName(section);
+  const toggleSection = (section: string) => {
+    setOpenSections((current) => {
+      const next = new Set(current);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+      }
+      return next;
+    });
     setActiveTab(section);
   };
 
   const handleTabSelect = (tabKey: string) => {
     setActiveTab(tabKey);
     if (tabKey !== 'overview') {
-      setSelectedSectionName(tabKey);
+      setOpenSections((current) => {
+        const next = new Set(current);
+        next.add(tabKey);
+        return next;
+      });
     }
   };
 
@@ -949,12 +1002,11 @@ export default function AnalysisResultPage() {
               <SectionScoreBar
                 key={score.section}
                 item={score}
-                selected={selectedSectionScore?.section === score.section}
-                onSelect={handleSectionScoreSelect}
+                isOpen={openSections.has(score.section)}
+                onToggle={toggleSection}
               />
             ))}
           </div>
-          {selectedSectionScore && <SectionSubScorePanel item={selectedSectionScore} />}
         </div>
       </section>
 

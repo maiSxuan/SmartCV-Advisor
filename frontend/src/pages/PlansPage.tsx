@@ -331,11 +331,6 @@ function FreeCard() {
       <div className="absolute right-6 top-6 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">Gói hiện tại</div>
       <h3 className="text-xl font-bold text-slate-900">Free</h3>
       <div className="mt-4"><span className="text-5xl font-extrabold tracking-tight text-slate-900">đ0</span></div>
-      <ul className="mb-8 mt-8 flex-1 space-y-4 text-sm font-medium text-slate-700">
-        {FREE_FEATURES.map((f, i) => (
-          <li key={i} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>
-        ))}
-      </ul>
       <p className="mt-2 text-sm font-medium text-slate-400">Mãi mãi miễn phí</p>
       <div className="mb-8 mt-8 flex-1 space-y-6 text-sm font-medium">
         <div>
@@ -401,21 +396,11 @@ function UpgradePremiumCard({ cycle, recommended, onUpgrade }: { cycle: '30' | '
       <h3 className="pr-20 text-xl font-bold text-white">Premium — Job Search Pass</h3>
       <div className="mt-4"><span className="text-5xl font-extrabold tracking-tight text-white">đ{cycle === '30' ? '199.000' : '389.000'}</span></div>
       <p className="mt-2 text-sm font-medium text-blue-200">{cycle === '30' ? '30 ngày' : '90 ngày'}</p>
-      <ul className="mt-8 flex-1 space-y-4 text-sm font-medium text-white">
-        {PREMIUM_FEATURES.map((f, i) => <li key={i} className="flex items-start gap-3"><CheckIcon cls="bg-white" /><span>{f}</span></li>)}
-        <li className="my-4 border-t border-blue-500/50" />
-        {getCS(cycle).map((f, i) => (
-          <li key={i} className="flex items-center gap-3 text-blue-200">
-            <ClockIcon cls="bg-blue-300" /><span className="flex-1">{f}</span>
-            <span className="rounded-full border border-blue-400/30 bg-blue-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-blue-100">Sắp ra mắt</span>
-          </li>
-        ))}
-      </ul>
       <div className="mt-8 flex-1 space-y-6 text-sm font-medium">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-blue-100">Quyền lợi hiện có</p>
           <ul className="mt-4 space-y-4 text-white">
-            {PREMIUM_FEATURES.map((f, i) => <li key={i} className="flex items-start gap-3"><CheckIcon cls="text-white" /><span>{f}</span></li>)}
+            {PREMIUM_FEATURES.map((f, i) => <li key={i} className="flex items-start gap-3"><CheckIcon cls="bg-white" /><span>{f}</span></li>)}
           </ul>
         </div>
         <div className="border-t border-blue-500/50 pt-5">
@@ -423,7 +408,7 @@ function UpgradePremiumCard({ cycle, recommended, onUpgrade }: { cycle: '30' | '
           <ul className="mt-4 space-y-4">
             {PREMIUM_COMING_SOON.map((f, i) => (
               <li key={i} className="flex items-center gap-3 text-blue-100">
-                <ClockIcon cls="text-blue-100" /><span className="flex-1">{f}</span>
+                <ClockIcon cls="bg-blue-300" /><span className="flex-1">{f}</span>
                 <span className="rounded-full border border-blue-400/30 bg-blue-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-blue-100">Sắp ra mắt</span>
               </li>
             ))}

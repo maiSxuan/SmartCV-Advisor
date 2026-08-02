@@ -25,6 +25,7 @@ const navigationItems = [
   { label: 'Phân tích CV', path: '/upload' },
   { label: 'Lịch sử phân tích', path: '/history' },
   { label: 'Gói dịch vụ', path: '/plans' },
+  { label: 'Hướng dẫn', path: '/guide' },
   { label: 'Hồ sơ cá nhân', path: '/profile' },
 ];
 
@@ -165,6 +166,7 @@ function AppShell() {
           <Route path="/upload" element={<UploadCvPage />} />
           <Route path="/analysis/:id" element={<AnalysisResultPage />} />
           <Route path="/plans" element={<PlansPage />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/general-info" element={<GeneralInfoPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
@@ -275,6 +277,7 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/guide" element={<GuidePage />} />
         <Route path="/general-info" element={<GeneralInfoPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/data-policy" element={<DataPolicyPage />} />
