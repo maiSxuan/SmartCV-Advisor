@@ -66,14 +66,22 @@ export default function LandingPage() {
             <Link to="/login" className="hover:text-blue-600 transition-colors">Đăng nhập</Link>
           </nav>
 
-          {/* CTA button */}
-          <button
-            className="h-9 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-95"
-            type="button"
-            onClick={() => navigate('/register')}
-          >
-            Phân tích CV miễn phí
-          </button>
+          {/* Action group: Đăng ký + CTA */}
+          <div className="flex items-center gap-3">
+            <Link
+              to="/register"
+              className="hidden h-9 items-center rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-600 sm:inline-flex"
+            >
+              Đăng ký
+            </Link>
+            <button
+              className="h-9 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-95"
+              type="button"
+              onClick={() => navigate('/register')}
+            >
+              Phân tích CV miễn phí
+            </button>
+          </div>
         </div>
       </header>
 
@@ -151,29 +159,49 @@ export default function LandingPage() {
           <div className="grid gap-8 md:grid-cols-3">
             {[
               {
-                step: '01',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                    <path d="M12 3v12" />
+                    <path d="M7 8l5-5 5 5" />
+                    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                  </svg>
+                ),
                 title: 'Tải CV',
                 desc: 'Tải lên file PDF, DOC hoặc DOCX — hệ thống tự động xử lý và kiểm tra tính toàn vẹn của tài liệu.',
                 color: 'bg-blue-50 text-blue-600',
               },
               {
-                step: '02',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                    <path d="M3 3v18h18" />
+                    <path d="M18 17V9" />
+                    <path d="M13 17V5" />
+                    <path d="M8 17v-3" />
+                  </svg>
+                ),
                 title: 'Nhận điểm và phát hiện lỗi',
                 desc: 'Hệ thống AI chấm điểm CV theo 5 tiêu chí và chỉ ra các lỗi cần ưu tiên sửa trước, giúp bạn tiết kiệm thời gian.',
                 color: 'bg-indigo-50 text-indigo-600',
               },
               {
-                step: '03',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                    <path d="M7 6l6 6-6 6" />
+                    <path d="M13 6l6 6-6 6" />
+                  </svg>
+                ),
                 title: 'Xem hướng cải thiện',
                 desc: 'Nhận danh sách gợi ý cải thiện CV chi tiết, phù hợp với vị trí mục tiêu để tăng cơ hội được gọi phỏng vấn.',
                 color: 'bg-emerald-50 text-emerald-600',
               },
             ].map((item) => (
-              <div key={item.step} className="group rounded-3xl border border-slate-100 bg-white p-8 shadow-sm transition hover:shadow-lg hover:-translate-y-1">
-                <div className={`mb-5 inline-flex h-10 w-10 items-center justify-center rounded-xl font-bold ${item.color}`}>
-                  {item.step}
+              <div key={item.title} className="group rounded-3xl border border-slate-100 bg-white p-8 shadow-sm transition hover:shadow-lg hover:-translate-y-1">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.color}`}>
+                    {item.icon}
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">{item.title}</h3>
                 </div>
-                <h3 className="mb-3 text-xl font-bold text-slate-900">{item.title}</h3>
                 <p className="leading-relaxed text-slate-500">{item.desc}</p>
               </div>
             ))}
