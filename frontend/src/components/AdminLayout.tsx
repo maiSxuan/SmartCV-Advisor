@@ -3,32 +3,10 @@ import type { ReactNode } from 'react';
 import { apiService, clearAuthSession, getStoredAuthSession, getStoredAuthUser } from '../services/api';
 
 const adminNavItems = [
-  { label: 'Vị trí IT', path: '/admin/roles', icon: 'briefcase' },
-  { label: 'Kỹ năng & Điểm số', path: '/admin/skills', icon: 'bars' },
-  { label: 'Người dùng', path: '/admin/users', icon: 'users' },
+  { label: 'Vị trí IT', path: '/admin/roles' },
+  { label: 'Kỹ năng & Điểm số', path: '/admin/skills' },
+  { label: 'Người dùng', path: '/admin/users' },
 ];
-
-function AdminIcon({ icon }: { icon: string }) {
-  if (icon === 'bars') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-        <path d="M6 19V9m6 10V5m6 14v-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (icon === 'users') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-        <path d="M16 20a4 4 0 0 0-8 0m11 0a3 3 0 0 0-3-3M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm9 3a3 3 0 1 0 0-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-      <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-9 0h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm2 5h8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 export default function AdminLayout({
   breadcrumb,
@@ -61,11 +39,6 @@ export default function AdminLayout({
     <div className="min-h-screen bg-[#eef3f8] text-slate-900">
       <aside className="fixed inset-y-0 left-0 hidden w-60 bg-[#111a2e] text-slate-300 lg:flex lg:flex-col">
         <Link to="/admin/roles" className="flex h-16 items-center gap-3 border-b border-white/10 px-5">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600 text-white">
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
-              <path d="M8 3h8l3 3v15H5V3h3Zm7 0v4h4M9 13h6M9 17h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
           <span className="font-bold text-white">SmartCV Admin</span>
         </Link>
 
@@ -76,12 +49,11 @@ export default function AdminLayout({
               to={item.path}
               className={({ isActive }) =>
                 [
-                  'flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition',
+                  'flex min-h-11 items-center rounded-xl px-3 text-sm font-medium transition',
                   isActive ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white',
                 ].join(' ')
               }
             >
-              <AdminIcon icon={item.icon} />
               {item.label}
             </NavLink>
           ))}
@@ -89,13 +61,10 @@ export default function AdminLayout({
 
         <div className="border-t border-white/10 p-3">
           <button
-            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white"
+            className="flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white"
             type="button"
             onClick={handleLogout}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-              <path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2M3 12h11m0 0-3-3m3 3-3 3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
             Đăng xuất
           </button>
         </div>

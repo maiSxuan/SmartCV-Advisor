@@ -14,51 +14,18 @@ import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import LoginPage from './pages/LoginPage';
 import UploadCvPage from './pages/UploadCvPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import DataPolicyPage from './pages/DataPolicyPage';
+import GeneralInfoPage from './pages/GeneralInfoPage';
 import { apiService, clearAuthSession, getStoredAuthSession, getStoredAuthUser } from './services/api';
 
 const navigationItems = [
-  { label: 'Tổng quan', path: '/', icon: 'grid' },
-  { label: 'Phân tích CV', path: '/upload', icon: 'upload' },
-  { label: 'Lịch sử phân tích', path: '/history', icon: 'clock' },
-  { label: 'Gói dịch vụ', path: '/plans', icon: 'card' },
-  { label: 'Hồ sơ cá nhân', path: '/profile', icon: 'user' },
+  { label: 'Tổng quan', path: '/' },
+  { label: 'Phân tích CV', path: '/upload' },
+  { label: 'Lịch sử phân tích', path: '/history' },
+  { label: 'Gói dịch vụ', path: '/plans' },
+  { label: 'Hồ sơ cá nhân', path: '/profile' },
 ];
-
-function NavIcon({ icon }: { icon: string }) {
-  if (icon === 'upload') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-        <path d="M12 16V5m0 0 4 4m-4-4-4 4M5 16v3h14v-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  if (icon === 'clock') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-        <path d="M12 7v5l3 2M5 5v5h5M5.6 14a7 7 0 1 0 1.8-6.6L5 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  if (icon === 'card') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-        <path d="M4 7h16v10H4zM4 10h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  if (icon === 'user') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8a7 7 0 0 0-14 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-      <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function AppShell() {
   const location = useLocation();
@@ -125,13 +92,12 @@ function AppShell() {
                 key={`${item.label}-${item.path}`}
                 to={item.path}
                 className={[
-                  'flex min-h-12 items-center gap-3 rounded-2xl px-4 font-medium transition',
+                  'flex min-h-12 items-center rounded-2xl px-4 font-medium transition',
                   active
                     ? 'bg-blue-50 text-blue-600'
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700',
                 ].join(' ')}
               >
-                <NavIcon icon={item.icon} />
                 {item.label}
               </Link>
             );
@@ -166,20 +132,11 @@ function AppShell() {
             </div>
             <button
               aria-label="Đăng xuất"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              className="rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               type="button"
               onClick={() => setShowLogoutDialog(true)}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-                <path
-                  d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2M3 12h11m0 0-3-3m3 3-3 3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              Đăng xuất
             </button>
           </div>
         </div>
@@ -195,12 +152,6 @@ function AppShell() {
             <span className="text-slate-700">{pageTitle}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="relative grid h-10 w-10 place-items-center rounded-full text-slate-500">
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-blue-600" />
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-                <path d="M18 16v-5a6 6 0 0 0-12 0v5l-2 2h16zM10 20h4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
             <span className="grid h-10 w-10 place-items-center rounded-full bg-blue-100 font-bold text-blue-600">{initial}</span>
           </div>
         </header>
@@ -212,6 +163,11 @@ function AppShell() {
           <Route path="/analysis/:id" element={<AnalysisResultPage />} />
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/general-info" element={<GeneralInfoPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/data-policy" element={<DataPolicyPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<DataPolicyPage />} />
           <Route path="*" element={<UploadCvPage />} />
         </Routes>
       </div>
@@ -256,7 +212,26 @@ function AppRoutes() {
     '/forgot-password',
     '/reset-password',
   ].includes(location.pathname);
+  const isPolicyPath = [
+    '/general-info',
+    '/privacy-policy',
+    '/data-policy',
+    '/terms',
+    '/privacy',
+  ].includes(location.pathname);
   const adminPath = location.pathname.startsWith('/admin');
+
+  if (isPolicyPath) {
+    return (
+      <Routes>
+        <Route path="/general-info" element={<GeneralInfoPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/data-policy" element={<DataPolicyPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<DataPolicyPage />} />
+      </Routes>
+    );
+  }
 
   if (authPath) {
     return (
@@ -265,6 +240,11 @@ function AppRoutes() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/general-info" element={<GeneralInfoPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/data-policy" element={<DataPolicyPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<DataPolicyPage />} />
       </Routes>
     );
   }
@@ -292,6 +272,11 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/general-info" element={<GeneralInfoPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/data-policy" element={<DataPolicyPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<DataPolicyPage />} />
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
     );
