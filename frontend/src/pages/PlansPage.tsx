@@ -20,14 +20,14 @@ interface QuotaData {
 const PLAN_INFO: Record<string, { label: string; price: number; days: number }> = {
   'upgrade-30': { label: 'Premium 30 ngày', price: 199000, days: 30 },
   'upgrade-90': { label: 'Premium 90 ngày', price: 389000, days: 90 },
-  'renew-30':   { label: 'Gia hạn Premium 30 ngày', price: 199000, days: 30 },
-  'renew-90':   { label: 'Gia hạn Premium 90 ngày', price: 389000, days: 90 },
+  'renew-30': { label: 'Gia hạn Premium 30 ngày', price: 199000, days: 30 },
+  'renew-90': { label: 'Gia hạn Premium 90 ngày', price: 389000, days: 90 },
 };
 
 const METHODS: { id: PayMethod; name: string; desc: string }[] = [
-  { id: 'bank',  name: 'Chuyển khoản ngân hàng', desc: 'Vietcombank / MB Bank / Techcombank' },
-  { id: 'momo',  name: 'Ví MoMo',               desc: 'Quét mã QR hoặc nhập SĐT' },
-  { id: 'vnpay', name: 'VNPay',                  desc: 'ATM nội địa / Thẻ quốc tế' },
+  { id: 'bank', name: 'Chuyển khoản ngân hàng', desc: 'Vietcombank / MB Bank / Techcombank' },
+  { id: 'momo', name: 'Ví MoMo', desc: 'Quét mã QR hoặc nhập SĐT' },
+  { id: 'vnpay', name: 'VNPay', desc: 'ATM nội địa / Thẻ quốc tế' },
 ];
 
 const FAKE_BANK = {
@@ -43,6 +43,11 @@ const CheckIcon = ({ cls = 'bg-emerald-500' }: { cls?: string }) => (
 );
 const ClockIcon = ({ cls = 'bg-slate-300' }: { cls?: string }) => (
   <span className={`h-2 w-2 shrink-0 rounded-full ${cls}`} />
+);
+const LockIcon = ({ cls = 'text-slate-400' }: { cls?: string }) => (
+  <svg className={`h-5 w-5 shrink-0 ${cls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 10.5V7a4.5 4.5 0 00-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20H6.75A1.75 1.75 0 015 18.25v-6a1.75 1.75 0 011.75-1.75z" />
+  </svg>
 );
 
 // ─────────────────────── Payment Modal ───────────────────────
@@ -290,13 +295,33 @@ function CancelModal({ onConfirm, onCancel, loading, error }: {
 }
 
 // ─────────────────────── Plan Cards ───────────────────────
-const FREE_FEATURES = ['3 lượt phân tích', 'Điểm tổng quan và 5 tiêu chí', 'Danh sách lỗi phổ biến', 'Gợi ý cải thiện tổng quan, không kèm roadmap', 'Lịch sử phân tích'];
-const PREMIUM_FEATURES = ['Không giới hạn lượt phân tích', 'Gợi ý chi tiết chuyên sâu', 'Roadmap sau khi đánh giá CV', 'Tất cả quyền lợi Free'];
-const getCS = (c: '30' | '90') => [
+const FREE_FEATURES = [
+  '3 lượt phân tích CV cho một chu kỳ tài khoản',
+  'Điểm tổng quan và các tiêu chí đánh giá',
+  'Điểm chi tiết theo từng phần CV',
+  'Gợi ý cải thiện cơ bản',
+  'Xem toàn bộ lịch sử phân tích',
+];
+
+const FREE_LIMITATIONS = [
+  'Roadmap cải thiện sau đánh giá',
+  'Gợi ý chuyên sâu',
+];
+
+const PREMIUM_FEATURES = [
+  'Không giới hạn lượt phân tích CV',
+  'Roadmap cải thiện sau mỗi lần đánh giá',
+  'Xem toàn bộ lịch sử phân tích',
+  'Gợi ý cải thiện chi tiết và chuyên sâu',
+];
+
+const PREMIUM_COMING_SOON = [
+  'Danh sách lỗi chi tiết',
   'Câu mẫu viết lại theo STAR',
   'Sao chép nhanh từng câu mẫu',
-  c === '30' ? 'Matching Score với JD (10 lượt)' : 'Matching Score với JD (40 lượt)',
-  c === '30' ? 'AI Assistant (20 lượt)' : 'AI Assistant (80 lượt)',
+  'Nội dung viết lại nâng cao',
+  'Matching Score với mô tả công việc',
+  'AI Assistant hỗ trợ chỉnh sửa CV',
   'Tải xuống CV đã chỉnh sửa',
 ];
 
@@ -311,6 +336,25 @@ function FreeCard() {
           <li key={i} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>
         ))}
       </ul>
+      <p className="mt-2 text-sm font-medium text-slate-400">Mãi mãi miễn phí</p>
+      <div className="mb-8 mt-8 flex-1 space-y-6 text-sm font-medium">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Quyền lợi hiện có</p>
+          <ul className="mt-4 space-y-4 text-slate-700">
+            {FREE_FEATURES.map((f, i) => (
+              <li key={i} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>
+            ))}
+          </ul>
+        </div>
+        <div className="border-t border-slate-200 pt-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Tính năng bị giới hạn</p>
+          <ul className="mt-4 space-y-4 text-slate-500">
+            {FREE_LIMITATIONS.map((f, i) => (
+              <li key={i} className="flex items-start gap-3"><LockIcon /><span>{f}</span></li>
+            ))}
+          </ul>
+        </div>
+      </div>
       <button disabled className="w-full rounded-2xl bg-slate-50 py-3.5 font-bold text-slate-400 cursor-not-allowed opacity-80">Gói hiện tại của bạn</button>
     </div>
   );
@@ -323,16 +367,25 @@ function CurrentPremiumCard({ cycle, onRenew, onCancel }: { cycle: '30' | '90'; 
       <h3 className="pr-20 text-xl font-bold text-slate-900">Premium — Job Search Pass</h3>
       <div className="mt-4"><span className="text-5xl font-extrabold tracking-tight text-slate-900">đ{cycle === '30' ? '199.000' : '389.000'}</span></div>
       <p className="mt-2 text-sm font-medium text-slate-400">{cycle === '30' ? '30 ngày' : '90 ngày'}</p>
-      <ul className="mt-8 flex-1 space-y-4 text-sm font-medium text-slate-700">
-        {PREMIUM_FEATURES.map((f, i) => <li key={i} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>)}
-        <li className="my-4 border-t border-slate-200" />
-        {getCS(cycle).map((f, i) => (
-          <li key={i} className="flex items-center gap-3 text-slate-500">
-            <ClockIcon /><span className="flex-1">{f}</span>
-            <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-8 flex-1 space-y-6 text-sm font-medium">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Quyền lợi hiện có</p>
+          <ul className="mt-4 space-y-4 text-slate-700">
+            {PREMIUM_FEATURES.map((f, i) => <li key={i} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>)}
+          </ul>
+        </div>
+        <div className="border-t border-slate-200 pt-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Sắp ra mắt</p>
+          <ul className="mt-4 space-y-4">
+            {PREMIUM_COMING_SOON.map((f, i) => (
+              <li key={i} className="flex items-center gap-3 text-slate-500">
+                <ClockIcon /><span className="flex-1">{f}</span>
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
       <div className="mt-8 flex flex-col gap-3">
         <button onClick={onRenew} className="w-full rounded-2xl bg-emerald-600 py-3.5 font-bold text-white transition hover:bg-emerald-700 active:scale-95">Gia hạn gói hiện tại</button>
         <button onClick={onCancel} className="w-full rounded-2xl border border-red-200 py-3.5 font-semibold text-red-600 transition hover:bg-red-50 active:scale-95">Hủy gói Premium</button>
@@ -358,6 +411,25 @@ function UpgradePremiumCard({ cycle, recommended, onUpgrade }: { cycle: '30' | '
           </li>
         ))}
       </ul>
+      <div className="mt-8 flex-1 space-y-6 text-sm font-medium">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-100">Quyền lợi hiện có</p>
+          <ul className="mt-4 space-y-4 text-white">
+            {PREMIUM_FEATURES.map((f, i) => <li key={i} className="flex items-start gap-3"><CheckIcon cls="text-white" /><span>{f}</span></li>)}
+          </ul>
+        </div>
+        <div className="border-t border-blue-500/50 pt-5">
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-100">Sắp ra mắt</p>
+          <ul className="mt-4 space-y-4">
+            {PREMIUM_COMING_SOON.map((f, i) => (
+              <li key={i} className="flex items-center gap-3 text-blue-100">
+                <ClockIcon cls="text-blue-100" /><span className="flex-1">{f}</span>
+                <span className="rounded-full border border-blue-400/30 bg-blue-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-blue-100">Sắp ra mắt</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
       <button onClick={onUpgrade} className="mt-8 w-full rounded-2xl bg-white py-3.5 font-bold text-blue-600 transition hover:bg-slate-50 hover:shadow-lg active:scale-95">Nâng cấp Premium</button>
     </div>
   );
@@ -417,7 +489,7 @@ export default function PlansPage() {
         <h1 className="mb-4 text-2xl font-medium text-slate-500">
           {currentPlanId === 'DV_FREE' ? 'Bắt đầu miễn phí, nâng cấp khi bạn cần thêm sức mạnh'
             : currentPlanId === 'DV_PREMIUM_30' ? 'Nâng cấp lên gói 90 ngày để tiết kiệm hơn'
-            : 'Sử dụng công cụ AI mạnh mẽ nhất để nâng tầm CV của bạn'}
+              : 'Sử dụng công cụ AI mạnh mẽ nhất để nâng tầm CV của bạn'}
         </h1>
       </div>
 

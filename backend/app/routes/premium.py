@@ -11,29 +11,59 @@ from app.db import db
 
 router = APIRouter(prefix="/api/v1/service-plans", tags=["Plans"])
 
-FREE_ROADMAP_NOTE = "Gợi ý cải thiện tổng quan, không kèm roadmap"
-PREMIUM_ROADMAP_FEATURE = "Roadmap sau khi đánh giá CV"
+FREE_FEATURES = [
+    "3 lượt phân tích CV cho một chu kỳ tài khoản",
+    "Điểm tổng quan và các tiêu chí đánh giá",
+    "Điểm chi tiết theo từng phần CV",
+    "Gợi ý cải thiện cơ bản",
+    "Xem toàn bộ lịch sử phân tích",
+]
+
+FREE_LIMITED_FEATURES = [
+    "Roadmap cải thiện sau đánh giá",
+    "Gợi ý chuyên sâu",
+]
+
+PREMIUM_FEATURES = [
+    "Không giới hạn lượt phân tích CV",
+    "Roadmap cải thiện sau mỗi lần đánh giá",
+    "Xem toàn bộ lịch sử phân tích",
+    "Gợi ý cải thiện chi tiết và chuyên sâu",
+]
+
+PREMIUM_COMING_SOON = [
+    "Danh sách lỗi chi tiết",
+    "Câu mẫu viết lại theo STAR",
+    "Sao chép nhanh từng câu mẫu",
+    "Nội dung viết lại nâng cao",
+    "Matching Score với mô tả công việc",
+    "AI Assistant hỗ trợ chỉnh sửa CV",
+    "Tải xuống CV đã chỉnh sửa",
+]
 
 
 def normalize_plan_features(plan_id: str, features: list[str]) -> list[str]:
+    plan_key = str(plan_id or "")
+    if plan_key == "DV_FREE":
+        return list(FREE_FEATURES)
+    if plan_key.startswith("DV_PREMIUM"):
+        return list(PREMIUM_FEATURES)
+
     cleaned: list[str] = []
     for feature in features:
         normalized = feature.strip()
         if not normalized:
             continue
-        lower_feature = normalized.lower()
-        if plan_id == "DV_FREE" and "gợi ý cải thiện tổng quan" in lower_feature:
-            if "lỗi phổ biến" in lower_feature and "Danh sách lỗi phổ biến" not in cleaned:
-                cleaned.append("Danh sách lỗi phổ biến")
-            continue
         cleaned.append(normalized)
-
-    if plan_id == "DV_FREE" and FREE_ROADMAP_NOTE not in cleaned:
-        cleaned.append(FREE_ROADMAP_NOTE)
-    if plan_id.startswith("DV_PREMIUM") and PREMIUM_ROADMAP_FEATURE not in cleaned:
-        insert_at = 2 if len(cleaned) >= 2 else len(cleaned)
-        cleaned.insert(insert_at, PREMIUM_ROADMAP_FEATURE)
     return cleaned
+
+
+def plan_limited_features(plan_id: str) -> list[str]:
+    return list(FREE_LIMITED_FEATURES) if str(plan_id or "") == "DV_FREE" else []
+
+
+def plan_coming_soon(plan_id: str) -> list[str]:
+    return list(PREMIUM_COMING_SOON) if str(plan_id or "").startswith("DV_PREMIUM") else []
 
 
 PLANS = [
@@ -43,13 +73,8 @@ PLANS = [
         "price": 0,
         "duration_days": None,
         "analysis_limit": 3,
-        "features": [
-            "3 lượt phân tích",
-            "Điểm tổng quan và 5 tiêu chí",
-            "Danh sách lỗi phổ biến",
-            FREE_ROADMAP_NOTE,
-            "Lịch sử phân tích",
-        ],
+        "features": FREE_FEATURES,
+        "limited_features": FREE_LIMITED_FEATURES,
         "coming_soon": [],
     },
     {
@@ -58,19 +83,9 @@ PLANS = [
         "price": 199000,
         "duration_days": 30,
         "analysis_limit": 20,
-        "features": [
-            "Không giới hạn lượt phân tích",
-            "Gợi ý chi tiết chuyên sâu",
-            PREMIUM_ROADMAP_FEATURE,
-            "Câu mẫu viết lại theo STAR",
-            "Sao chép nhanh từng câu mẫu",
-            "Tất cả quyền lợi Free",
-        ],
-        "coming_soon": [
-            "Matching Score với JD",
-            "AI Assistant (30 lượt)",
-            "Tải xuống CV đã chỉnh sửa",
-        ],
+        "features": PREMIUM_FEATURES,
+        "limited_features": [],
+        "coming_soon": PREMIUM_COMING_SOON,
     },
     {
         "plan_id": "DV_PREMIUM_90",
@@ -78,19 +93,9 @@ PLANS = [
         "price": 389000,
         "duration_days": 90,
         "analysis_limit": 30,
-        "features": [
-            "Không giới hạn lượt phân tích",
-            "Gợi ý chi tiết chuyên sâu",
-            PREMIUM_ROADMAP_FEATURE,
-            "Câu mẫu viết lại theo STAR",
-            "Sao chép nhanh từng câu mẫu",
-            "Tất cả quyền lợi Free",
-        ],
-        "coming_soon": [
-            "Matching Score với JD",
-            "AI Assistant (30 lượt)",
-            "Tải xuống CV đã chỉnh sửa",
-        ],
+        "features": PREMIUM_FEATURES,
+        "limited_features": [],
+        "coming_soon": PREMIUM_COMING_SOON,
     },
 ]
 
@@ -106,7 +111,7 @@ async def get_service_plans() -> dict[str, Any]:
     if db_plans:
         result = []
         for plan in db_plans:
-            plan_id = plan.get("_id", "")
+            plan_id = str(plan.get("_id", ""))
             price_raw = plan.get("Gia", 0)
             try:
                 price = float(str(price_raw))
@@ -123,7 +128,8 @@ async def get_service_plans() -> dict[str, Any]:
                         plan_id,
                         [f.strip() for f in (plan.get("QuyenLoi") or "").split(";") if f.strip()],
                     ),
-                    "coming_soon": [],
+                    "limited_features": plan_limited_features(plan_id),
+                    "coming_soon": plan_coming_soon(plan_id),
                 }
             )
         return {"data": result}
@@ -137,13 +143,8 @@ async def get_service_plans() -> dict[str, Any]:
                 "price": 0,
                 "duration_days": None,
                 "analysis_limit": 3,
-                "features": [
-                    "3 lượt phân tích",
-                    "Điểm tổng quan và 5 tiêu chí",
-                    "Danh sách lỗi phổ biến",
-                    FREE_ROADMAP_NOTE,
-                    "Lịch sử phân tích",
-                ],
+                "features": FREE_FEATURES,
+                "limited_features": FREE_LIMITED_FEATURES,
                 "coming_soon": [],
             },
             {
@@ -152,19 +153,9 @@ async def get_service_plans() -> dict[str, Any]:
                 "price": 199000,
                 "duration_days": 30,
                 "analysis_limit": 20,
-                "features": [
-                    "Không giới hạn lượt phân tích",
-                    "Gợi ý chi tiết chuyên sâu",
-                    PREMIUM_ROADMAP_FEATURE,
-                    "Câu mẫu viết lại theo STAR",
-                    "Sao chép nhanh từng câu mẫu",
-                    "Tất cả quyền lợi Free",
-                ],
-                "coming_soon": [
-                    "Matching Score với JD",
-                    "AI Assistant (30 lượt)",
-                    "Tải xuống CV đã chỉnh sửa",
-                ],
+                "features": PREMIUM_FEATURES,
+                "limited_features": [],
+                "coming_soon": PREMIUM_COMING_SOON,
             },
             {
                 "plan_id": "DV_PREMIUM_90",
@@ -172,19 +163,9 @@ async def get_service_plans() -> dict[str, Any]:
                 "price": 389000,
                 "duration_days": 90,
                 "analysis_limit": 30,
-                "features": [
-                    "Không giới hạn lượt phân tích",
-                    "Gợi ý chi tiết chuyên sâu",
-                    PREMIUM_ROADMAP_FEATURE,
-                    "Câu mẫu viết lại theo STAR",
-                    "Sao chép nhanh từng câu mẫu",
-                    "Tất cả quyền lợi Free",
-                ],
-                "coming_soon": [
-                    "Matching Score với JD",
-                    "AI Assistant (30 lượt)",
-                    "Tải xuống CV đã chỉnh sửa",
-                ],
+                "features": PREMIUM_FEATURES,
+                "limited_features": [],
+                "coming_soon": PREMIUM_COMING_SOON,
             },
         ]
     }

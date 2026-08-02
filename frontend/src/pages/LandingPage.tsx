@@ -25,7 +25,7 @@ export default function LandingPage() {
           <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
             <a href="#how-it-works" className="hover:text-blue-600 transition-colors">Cách hoạt động</a>
             <a href="#plans" className="hover:text-blue-600 transition-colors">Gói dịch vụ</a>
-            
+
             {/* Thông tin chung Dropdown */}
             <div
               className="relative"
@@ -269,7 +269,7 @@ export default function LandingPage() {
             <p className="mt-3 text-slate-500">Phiên bản Free đã đủ để bắt đầu cải thiện CV của bạn</p>
           </div>
 
-          <div className="mx-auto grid max-w-3xl gap-6 md:grid-cols-2">
+          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
             {/* Free */}
             <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">Free</p>

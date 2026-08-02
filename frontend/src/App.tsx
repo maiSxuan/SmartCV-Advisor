@@ -5,6 +5,7 @@ import AdminSkillScoresPage from './pages/AdminSkillScoresPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AnalysisResultPage from './pages/AnalysisResultPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import GuidePage from './pages/GuidePage';
 import HistoryPage from './pages/HistoryPage';
 import DashboardPage from './pages/DashboardPage';
 import LandingPage from './pages/LandingPage';
@@ -45,7 +46,9 @@ function AppShell() {
       ? 'Gói dịch vụ'
       : location.pathname === '/profile'
         ? 'Hồ sơ cá nhân'
-        : 'Tổng quan';
+        : location.pathname === '/guide'
+          ? 'Hướng dẫn'
+          : 'Tổng quan';
 
   // Refresh quota mỗi khi navigate sang trang mới
   useEffect(() => {

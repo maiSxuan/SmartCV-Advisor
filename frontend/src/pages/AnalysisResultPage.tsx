@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { apiService, getApiErrorMessage } from '../services/api';
+import { sectionScoreGuides } from '../constants/scoring';
 import type { AnalysisIssue, AnalysisResult, RoadmapPhase, SectionScore } from '../types';
 
 const tabs = [
@@ -12,53 +13,6 @@ const tabs = [
   { key: 'Technical Skills', label: 'Kỹ năng' },
   { key: 'Certifications', label: 'Chứng chỉ' },
 ];
-
-const fallbackSectionCriteria: Record<string, string[]> = {
-  'Professional Summary': [
-    '0 điểm nếu thiếu section.',
-    'Tối đa 2 điểm: viết rõ ràng, ngắn gọn, đúng vai trò ứng tuyển.',
-    'Tối đa 3 điểm: nêu được định hướng hoặc chuyên môn liên quan trực tiếp role.',
-    'Tối đa 3 điểm: có nhắc kỹ năng/công nghệ trọng tâm của role.',
-    'Tối đa 2 điểm: có dấu hiệu về impact, kinh nghiệm, hoặc điểm mạnh nổi bật.',
-  ],
-  Education: [
-    '0 điểm nếu thiếu section.',
-    'Tối đa 4 điểm: có trường, ngành, bậc học, thời gian học rõ ràng.',
-    'Tối đa 3 điểm: coursework/đồ án/môn học liên quan đến role.',
-    'Tối đa 2 điểm: GPA, giải thưởng, học bổng, thành tích học thuật nếu có.',
-    'Tối đa 1 điểm: trình bày dễ đọc, không mơ hồ.',
-  ],
-  Experience: [
-    '0 điểm nếu thiếu section.',
-    'Tối đa 6 điểm: kinh nghiệm liên quan trực tiếp đến role mục tiêu.',
-    'Tối đa 5 điểm: mô tả trách nhiệm gắn với skill_score quan trọng.',
-    'Tối đa 4 điểm: có kết quả đo lường được, impact, hoặc phạm vi hệ thống.',
-    'Tối đa 3 điểm: thể hiện ownership, seniority, teamwork, hoặc domain context.',
-    'Tối đa 2 điểm: timeline, company, title rõ ràng.',
-  ],
-  Projects: [
-    '0 điểm nếu thiếu section.',
-    'Tối đa 5 điểm: project liên quan trực tiếp role và skill_score quan trọng.',
-    'Tối đa 4 điểm: có technical depth như architecture, API, model, database, deployment.',
-    'Tối đa 3 điểm: có kết quả, demo, GitHub, metric, user, hoặc deployment.',
-    'Tối đa 3 điểm: nêu rõ vai trò cá nhân, bài toán, và giải pháp.',
-  ],
-  'Technical Skills': [
-    '0 điểm nếu thiếu hoàn toàn bằng chứng kỹ năng.',
-    'Technical Skills là section quan trọng nhất, tối đa 35 điểm.',
-    'Chấm theo skill_scores của role: 3 = bắt buộc, 2 = quan trọng, 1 = nice to have, 0 = không tính điểm.',
-    'Skill_score 3 chiếm 60% điểm Technical Skills, skill_score 2 chiếm 30%, skill_score 1 chiếm 10%.',
-    'Mức bằng chứng cho từng skill: 0 = không thấy; 1 = nhắc mơ hồ; 2 = liệt kê rõ trong skills/cert/course; 3 = có dùng trong project/experience với ngữ cảnh cụ thể.',
-    'Tên sản phẩm AI như ChatGPT, Claude, Codex, Gemini chỉ thể hiện biết dùng công cụ, không tự động tính là skill Generative AI/LLM/Prompt Engineering nếu thiếu bằng chứng kỹ thuật.',
-    'Nếu thiếu section Technical Skills nhưng skill xuất hiện ở Experience/Projects, vẫn ghi nhận nhưng điểm Technical Skills tối đa 70%.',
-  ],
-  Certifications: [
-    '0 điểm nếu thiếu section.',
-    'Tối đa 5 điểm: chứng chỉ/khóa học liên quan trực tiếp role.',
-    'Tối đa 3 điểm: chứng chỉ bù vào skill bắt buộc hoặc quan trọng đang thiếu.',
-    'Tối đa 2 điểm: issuer, thời gian, credential/link rõ ràng và đáng tin.',
-  ],
-};
 
 function ScoreDonut({ score }: { score: number }) {
   return (
@@ -89,17 +43,62 @@ function scoreTextColor(score: number) {
   return 'text-blue-600';
 }
 
-function formatScore(value: number) {
-  if (!Number.isFinite(value)) return '0';
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+function formatScoreValue(score: number) {
+  return Number.isInteger(score) ? String(score) : score.toFixed(1);
 }
 
-function getSectionCriteria(item: SectionScore) {
-  return item.criteria?.length ? item.criteria : fallbackSectionCriteria[item.section] ?? [];
+function roundedScore(score: number) {
+  return Math.round(score * 10) / 10;
 }
 
-function getSectionSubScores(item: SectionScore) {
-  return (item.sub_scores ?? []).filter((subScore) => subScore.max_score > 0);
+function distributePoints(totalScore: number, maxScores: number[], weights?: number[]) {
+  if (!maxScores.length) return [];
+  const totalCapacity = maxScores.reduce((sum, score) => sum + score, 0);
+  const target = Math.max(0, Math.min(totalCapacity, totalScore));
+  let activeWeights = weights && weights.length === maxScores.length ? weights.map((weight) => Math.max(0, weight)) : [...maxScores];
+  if (!activeWeights.some((weight) => weight > 0)) {
+    activeWeights = [...maxScores];
+  }
+
+  const allocations = maxScores.map(() => 0);
+  const remainingIndexes = new Set(maxScores.map((_, index) => index));
+  let remainingTarget = target;
+
+  while (remainingIndexes.size > 0 && remainingTarget > 0) {
+    const weightSum = [...remainingIndexes].reduce((sum, index) => sum + activeWeights[index], 0);
+    if (weightSum <= 0) break;
+
+    let cappedThisRound = false;
+    [...remainingIndexes].forEach((index) => {
+      const share = (remainingTarget * activeWeights[index]) / weightSum;
+      if (share >= maxScores[index]) {
+        allocations[index] = maxScores[index];
+        remainingTarget -= maxScores[index];
+        remainingIndexes.delete(index);
+        cappedThisRound = true;
+      }
+    });
+
+    if (!cappedThisRound) {
+      remainingIndexes.forEach((index) => {
+        allocations[index] = (remainingTarget * activeWeights[index]) / weightSum;
+      });
+      break;
+    }
+  }
+
+  const rounded = allocations.map(roundedScore);
+  const difference = roundedScore(target - rounded.reduce((sum, score) => sum + score, 0));
+  if (Math.abs(difference) >= 0.1) {
+    const adjustableIndexes = rounded
+      .map((score, index) => ({ score, index }))
+      .filter(({ score, index }) => score + difference >= 0 && score + difference <= maxScores[index]);
+    const adjustableIndex = adjustableIndexes.length ? adjustableIndexes[adjustableIndexes.length - 1].index : undefined;
+    if (adjustableIndex !== undefined) {
+      rounded[adjustableIndex] = roundedScore(rounded[adjustableIndex] + difference);
+    }
+  }
+  return rounded;
 }
 
 function splitPhaseTitle(value: string) {
@@ -140,7 +139,8 @@ function phaseSkillGroups(phase: RoadmapPhase, index: number) {
     ['CI/CD Pipelines', 'Cloud Platforms'],
   ];
   const groupTitles = fallbackGroups[index] ?? ['Skill Focus', 'Practice Focus'];
-  const skills = phase.skills.length ? phase.skills : ['Cập nhật theo role mục tiêu'];
+  const skills = phase.skills.length ? phase.skills : [];
+  if (!skills.length) return [];
   const splitAt = Math.ceil(skills.length / Math.min(2, skills.length));
   const chunks = skills.length > 1 ? [skills.slice(0, splitAt), skills.slice(splitAt)] : [skills];
 
@@ -150,6 +150,285 @@ function phaseSkillGroups(phase: RoadmapPhase, index: number) {
       title: groupTitles[groupIndex] ?? `Nhóm kỹ năng ${groupIndex + 1}`,
       items,
     }));
+}
+
+const roadmapSkillTopicLibrary: { matches: string[]; topics: string[] }[] = [
+  {
+    matches: ['python'],
+    topics: [
+      'Cú pháp, kiểu dữ liệu, vòng lặp và điều kiện.',
+      'Function, module, package, virtual environment và pip.',
+      'List/dict comprehension, xử lý file CSV/JSON và exception.',
+      'OOP cơ bản, dataclass và typing để code dễ đọc hơn.',
+      'Async/await cơ bản nếu role cần backend hoặc xử lý dữ liệu.',
+      'Làm mini project đọc dữ liệu, xử lý và xuất kết quả rõ ràng.',
+    ],
+  },
+  {
+    matches: ['machine learning', 'scikit'],
+    topics: [
+      'Quy trình train, validation, test và tránh data leakage.',
+      'Tiền xử lý dữ liệu, feature engineering và scaling.',
+      'Supervised learning: regression, classification, tree-based models.',
+      'Metric đánh giá: accuracy, precision/recall, F1, ROC-AUC, RMSE.',
+      'Cross-validation, hyperparameter tuning và xử lý overfitting.',
+      'Scikit-learn Pipeline và cách giải thích kết quả mô hình.',
+    ],
+  },
+  {
+    matches: ['data wrangling', 'feature engineering'],
+    topics: [
+      'Làm sạch dữ liệu thiếu, trùng lặp, sai kiểu và outlier.',
+      'Tạo feature từ thời gian, text, category và dữ liệu số.',
+      'Encode category, scale numeric feature và tránh leakage.',
+      'Dùng Pandas/NumPy để build pipeline xử lý có thể lặp lại.',
+      'Ghi lại trước/sau xử lý bằng metric hoặc biểu đồ kiểm chứng.',
+    ],
+  },
+  {
+    matches: ['pandas'],
+    topics: [
+      'Series, DataFrame, đọc/ghi CSV, Excel và JSON.',
+      'Filter, sort, groupby, aggregate và pivot table.',
+      'Xử lý missing value, duplicate và kiểu dữ liệu ngày tháng.',
+      'Merge, join, concat nhiều bảng dữ liệu.',
+      'Tạo feature mới và chuẩn bị dữ liệu cho visualization/model.',
+      'Tối ưu thao tác vectorized thay vì loop thủ công.',
+    ],
+  },
+  {
+    matches: ['numpy'],
+    topics: [
+      'Array, shape, dtype và broadcasting.',
+      'Indexing, slicing, boolean mask và vectorization.',
+      'Các phép toán thống kê cơ bản trên vector/matrix.',
+      'Random sampling, seed và mô phỏng dữ liệu nhỏ.',
+      'Kết hợp NumPy với Pandas và scikit-learn.',
+    ],
+  },
+  {
+    matches: ['sql', 'postgres', 'mysql'],
+    topics: [
+      'SELECT, WHERE, GROUP BY, HAVING và aggregate function.',
+      'INNER/LEFT JOIN, subquery, CTE và window function.',
+      'Index, explain plan và tối ưu truy vấn thường gặp.',
+      'Thiết kế bảng, khóa chính/khóa ngoại và normalization.',
+      'Transaction, constraint và xử lý dữ liệu thiếu/sai.',
+      'Viết 5-10 query phân tích trên một dataset thật.',
+    ],
+  },
+  {
+    matches: ['statistics', 'probability'],
+    topics: [
+      'Thống kê mô tả: mean, median, variance, percentile.',
+      'Xác suất, phân phối thường gặp và sampling.',
+      'Correlation, regression cơ bản và cách đọc hệ số.',
+      'Confidence interval, hypothesis testing và p-value.',
+      'A/B testing, sai lệch mẫu và diễn giải kết quả cho business.',
+    ],
+  },
+  {
+    matches: ['linear algebra', 'calculus', 'mathematics'],
+    topics: [
+      'Vector, matrix, dot product và matrix multiplication.',
+      'Eigenvalue/eigenvector ở mức trực giác cho PCA và embedding.',
+      'Derivative, gradient và ý nghĩa trong tối ưu mô hình.',
+      'Loss function, gradient descent và learning rate.',
+      'Liên hệ toán nền tảng với regression, neural network và embedding.',
+    ],
+  },
+  {
+    matches: ['generative ai', 'llm', 'openai', 'gemini', 'claude'],
+    topics: [
+      'Khái niệm LLM, token, context window và hallucination.',
+      'Prompt pattern: role, constraint, examples và output format.',
+      'Gọi API, quản lý key, retry, streaming và xử lý lỗi.',
+      'Function calling/tool calling và structured output.',
+      'Đánh giá chất lượng response bằng test case cố định.',
+      'Tạo mini app tích hợp LLM có logging và guardrail cơ bản.',
+    ],
+  },
+  {
+    matches: ['prompt'],
+    topics: [
+      'Viết prompt có mục tiêu, ngữ cảnh, ràng buộc và format đầu ra.',
+      'Few-shot examples và cách kiểm soát tone/độ dài.',
+      'Prompt cho extraction, classification, rewrite và evaluation.',
+      'Thiết kế prompt test set để so sánh nhiều phiên bản.',
+      'Kết hợp prompt với JSON schema hoặc structured output.',
+    ],
+  },
+  {
+    matches: ['rag', 'retrieval', 'vector database', 'vector db', 'embedding'],
+    topics: [
+      'Embedding model, chunking strategy và metadata.',
+      'Vector database, similarity search và hybrid search.',
+      'Retriever, reranker và cách giảm thông tin nhiễu.',
+      'Prompt augmentation với citation/context rõ ràng.',
+      'Metric đánh giá retrieval và answer quality.',
+      'Xây dựng demo hỏi đáp tài liệu có log truy vấn.',
+    ],
+  },
+  {
+    matches: ['langchain', 'llamaindex', 'langgraph'],
+    topics: [
+      'Document loader, splitter, embedding và vector store.',
+      'Chain/workflow cơ bản cho RAG hoặc agent.',
+      'Memory/state, tool calling và error handling.',
+      'Evaluation, tracing và cách debug prompt/context.',
+      'Đóng gói thành demo có README và ví dụ input/output.',
+    ],
+  },
+  {
+    matches: ['model serving', 'fastapi', 'api development'],
+    topics: [
+      'REST endpoint, request/response model và validation.',
+      'Load model, cache tài nguyên và kiểm soát latency.',
+      'Health check, logging, error response và versioning.',
+      'Docker hóa service và cấu hình môi trường.',
+      'Viết test API và tài liệu Swagger/OpenAPI.',
+    ],
+  },
+  {
+    matches: ['docker', 'container'],
+    topics: [
+      'Dockerfile, image layer và build context.',
+      'Container, volume, network và environment variable.',
+      'Docker Compose cho app kèm database/service phụ.',
+      'Tối ưu image size và quản lý secret an toàn.',
+      'Đưa project CV/demo vào container chạy được trên máy khác.',
+    ],
+  },
+  {
+    matches: ['ci/cd', 'github actions', 'testing strategies'],
+    topics: [
+      'Viết test unit/integration tối thiểu cho luồng chính.',
+      'Thiết lập workflow chạy build/test khi push.',
+      'Cache dependency, secret và environment theo branch.',
+      'Tạo artifact hoặc deploy preview sau khi test pass.',
+      'Ghi badge/trạng thái CI vào README project.',
+    ],
+  },
+  {
+    matches: ['cloud', 'aws', 'gcp', 'azure'],
+    topics: [
+      'Compute, storage, database và networking cơ bản trên cloud.',
+      'Deploy API/model lên một dịch vụ đơn giản.',
+      'Environment variable, secret, domain và HTTPS.',
+      'Log, metric, cost estimate và giới hạn tài nguyên.',
+      'Viết README hướng dẫn deploy/redeploy cho project.',
+    ],
+  },
+  {
+    matches: ['mlflow'],
+    topics: [
+      'Tracking experiment, parameter, metric và artifact.',
+      'Model registry, versioning và so sánh nhiều run.',
+      'Lưu pipeline/model kèm input example.',
+      'Tái hiện kết quả training bằng config cố định.',
+      'Kết nối MLflow với demo serving hoặc notebook.',
+    ],
+  },
+  {
+    matches: ['data structures', 'algorithm', 'arrays', 'trees', 'graph'],
+    topics: [
+      'Array, string, hash map, stack và queue.',
+      'Tree, binary search tree, heap và traversal.',
+      'Graph traversal: BFS, DFS và shortest path cơ bản.',
+      'Sorting/searching, recursion và dynamic programming cơ bản.',
+      'Phân tích time complexity và space complexity.',
+      'Giải bài tập nhỏ rồi ghi lại pattern học được.',
+    ],
+  },
+  {
+    matches: ['react', 'frontend'],
+    topics: [
+      'Component, props, state và event handling.',
+      'Hooks phổ biến: useState, useEffect, useMemo và custom hook.',
+      'Form, validation và gọi API.',
+      'Routing, loading/error state và protected route.',
+      'Tối ưu render và tổ chức component theo feature.',
+    ],
+  },
+  {
+    matches: ['typescript'],
+    topics: [
+      'Primitive type, union, interface và type alias.',
+      'Generic, utility type và narrowing.',
+      'Type cho API response, form state và component props.',
+      'Xử lý null/undefined an toàn.',
+      'Refactor một component JavaScript sang TypeScript sạch.',
+    ],
+  },
+];
+
+function normalizeSkillName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9+#/.\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function roadmapIdPart(value: string) {
+  return normalizeSkillName(value).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
+}
+
+function isSameRoadmapSkill(left: string, right: string) {
+  const leftKey = normalizeSkillName(left);
+  const rightKey = normalizeSkillName(right);
+  if (!leftKey || !rightKey) return false;
+  if (leftKey === rightKey) return true;
+  const shorter = leftKey.length <= rightKey.length ? leftKey : rightKey;
+  const longer = leftKey.length > rightKey.length ? leftKey : rightKey;
+  return shorter.length >= 4 && longer.includes(shorter);
+}
+
+function dedupeRoadmapPhases(phases: RoadmapPhase[]) {
+  const seenSkills: string[] = [];
+  return phases.map((phase) => {
+    const sourceSkills = phase.skills.length ? phase.skills : phase.skill_details?.map((detail) => detail.skill) ?? [];
+    const phaseSkills: string[] = [];
+
+    sourceSkills.forEach((skill) => {
+      const normalized = normalizeSkillName(skill);
+      if (!normalized) return;
+      const isDuplicate = [...seenSkills, ...phaseSkills.map(normalizeSkillName)].some((seenSkill) =>
+        isSameRoadmapSkill(normalized, seenSkill),
+      );
+      if (isDuplicate) return;
+      phaseSkills.push(skill);
+      seenSkills.push(normalized);
+    });
+
+    const skillDetails = (phase.skill_details ?? []).filter((detail) =>
+      phaseSkills.some((skill) => isSameRoadmapSkill(detail.skill, skill)),
+    );
+
+    return {
+      ...phase,
+      skills: phaseSkills,
+      skill_details: skillDetails,
+    };
+  });
+}
+
+function fallbackSkillTopics(skill: string) {
+  const normalized = normalizeSkillName(skill);
+  const matched = roadmapSkillTopicLibrary.find((entry) => entry.matches.some((keyword) => normalized.includes(keyword)));
+  if (matched) return matched.topics;
+  return [
+    `Nắm khái niệm cốt lõi và thuật ngữ chính của ${skill}.`,
+    `Hoàn thành 2-3 bài tập nhỏ để hiểu quy trình dùng ${skill}.`,
+    `Áp dụng ${skill} vào một mini project phù hợp role mục tiêu.`,
+    `Ghi lại output, lỗi thường gặp và cách xử lý để đưa vào CV.`,
+  ];
+}
+
+function roadmapSkillTopics(phase: RoadmapPhase, skill: string) {
+  const normalizedSkill = normalizeSkillName(skill);
+  const detail = phase.skill_details?.find((item) => {
+    const normalizedDetail = normalizeSkillName(item.skill);
+    return normalizedDetail === normalizedSkill || normalizedDetail.includes(normalizedSkill) || normalizedSkill.includes(normalizedDetail);
+  });
+  const topics = detail?.topics?.map((topic) => topic.trim()).filter(Boolean);
+  return topics?.length ? topics : fallbackSkillTopics(skill);
 }
 
 function SectionScoreBar({
@@ -165,8 +444,7 @@ function SectionScoreBar({
   return (
     <button
       type="button"
-      aria-controls="section-score-criteria"
-      aria-expanded={selected}
+      aria-pressed={selected}
       className={[
         'w-full rounded-xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-200',
         selected ? 'border-blue-200 bg-blue-50/70' : 'border-transparent hover:border-slate-200 hover:bg-slate-50',
@@ -187,59 +465,102 @@ function SectionScoreBar({
   );
 }
 
-function SectionCriteriaPanel({ item }: { item: SectionScore }) {
-  const criteria = getSectionCriteria(item);
+type NormalizedSubScore = {
+  label: string;
+  score: number;
+  max_score: number;
+  description: string;
+};
+
+function normalizeSubScoresToSection(item: SectionScore, subScores: NormalizedSubScore[]) {
+  if (!subScores.length) return [];
+  const target = Math.max(0, Math.min(item.max_score, item.score));
+  const currentTotal = roundedScore(subScores.reduce((sum, subScore) => sum + subScore.score, 0));
+  if (Math.abs(currentTotal - target) < 0.1) {
+    return subScores;
+  }
+
+  const maxScores = subScores.map((subScore) => subScore.max_score);
+  const positiveScores = subScores.filter((subScore) => subScore.score > 0).length;
+  const weights = positiveScores >= 2 ? subScores.map((subScore) => subScore.score) : maxScores;
+  const normalizedScores = distributePoints(target, maxScores, weights);
+  return subScores.map((subScore, index) => ({
+    ...subScore,
+    score: normalizedScores[index] ?? 0,
+  }));
+}
+
+function getSectionSubScores(item: SectionScore): NormalizedSubScore[] {
+  const guide = sectionScoreGuides.find((entry) => entry.section === item.section);
+  if (item.sub_scores?.length) {
+    const rawSubScores = item.sub_scores.map((subScore) => ({
+      label: subScore.label,
+      score: subScore.score,
+      max_score: subScore.max_score,
+      description: subScore.description,
+    }));
+    const rawMaxTotal = roundedScore(rawSubScores.reduce((sum, subScore) => sum + subScore.max_score, 0));
+    const hasCompleteRubric = !guide?.subScores.length || rawSubScores.length >= guide.subScores.length;
+    if (Math.abs(rawMaxTotal - item.max_score) < 0.1 && hasCompleteRubric) {
+      return normalizeSubScoresToSection(item, rawSubScores);
+    }
+  }
+
+  if (!guide?.subScores.length) return [];
+
+  const totalMax = guide.subScores.reduce((sum, subScore) => sum + subScore.maxScore, 0) || item.max_score || 1;
+  const fallbackSubScores = guide.subScores.map((subScore) => {
+    const estimatedScore = item.max_score > 0 ? (item.score / item.max_score) * subScore.maxScore : 0;
+    return {
+      label: subScore.label,
+      score: roundedScore(Math.max(0, Math.min(subScore.maxScore, estimatedScore))),
+      max_score: subScore.maxScore || totalMax,
+      description: subScore.description,
+    };
+  });
+  return normalizeSubScoresToSection(item, fallbackSubScores);
+}
+
+function SectionSubScorePanel({ item }: { item: SectionScore }) {
   const subScores = getSectionSubScores(item);
-  const subScoreTotal = subScores.reduce((total, subScore) => total + subScore.score, 0);
-  const subScoreMax = subScores.reduce((total, subScore) => total + subScore.max_score, 0);
 
   return (
-    <div id="section-score-criteria" className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="font-bold text-blue-800">Tiêu chí tham chiếu: {item.section}</h3>
-        <span className="text-sm font-bold text-blue-700">
-          {item.score}/{item.max_score}
+    <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-500">Điểm thành phần</p>
+          <h3 className="mt-1 text-base font-extrabold text-blue-700">{item.section}</h3>
+        </div>
+        <span className="text-sm font-extrabold text-blue-700">
+          {formatScoreValue(item.score)}/{formatScoreValue(item.max_score)}
         </span>
       </div>
-      <ol className="mt-3 space-y-2 text-sm leading-6 text-blue-900">
-        {criteria.map((criterion, index) => (
-          <li key={criterion} className="flex gap-3">
-            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-xs font-bold text-blue-700">
-              {index + 1}
-            </span>
-            <span>{criterion}</span>
-          </li>
-        ))}
-      </ol>
-      {criteria.length === 0 && <p className="mt-3 text-sm text-blue-700">{item.comment}</p>}
-      {subScores.length > 0 && (
-        <div className="mt-5 border-t border-blue-100 pt-4">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <h4 className="font-bold text-blue-800">Điểm thành phần</h4>
-            <span className="text-xs font-bold text-blue-700">
-              {formatScore(subScoreTotal)}/{formatScore(subScoreMax)}
-            </span>
-          </div>
-          <div className="mt-3 space-y-3">
-            {subScores.map((subScore, index) => {
-              const percentage = Math.max(0, Math.min(100, Math.round((subScore.score / subScore.max_score) * 100)));
-              return (
-                <div key={`${subScore.label}-${index}`} className="rounded-xl bg-white/80 p-3">
-                  <div className="flex items-start justify-between gap-3 text-sm">
-                    <span className="font-semibold text-slate-700">{subScore.label}</span>
-                    <span className={`shrink-0 font-bold ${scoreTextColor(percentage)}`}>
-                      {formatScore(subScore.score)}/{formatScore(subScore.max_score)}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div className={`h-full rounded-full ${scoreBarColor(percentage)}`} style={{ width: `${percentage}%` }} />
-                  </div>
-                  {subScore.description && <p className="mt-2 text-xs leading-5 text-slate-500">{subScore.description}</p>}
+
+      {subScores.length > 0 ? (
+        <div className="mt-4 space-y-3">
+          {subScores.map((subScore) => {
+            const percentage =
+              subScore.max_score > 0 ? Math.max(0, Math.min(100, Math.round((subScore.score / subScore.max_score) * 100))) : 0;
+            return (
+              <article key={subScore.label} className="rounded-xl bg-white px-4 py-3 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <h4 className="text-sm font-bold leading-5 text-slate-800">{subScore.label}</h4>
+                  <span className={`shrink-0 text-sm font-extrabold ${scoreTextColor(percentage)}`}>
+                    {formatScoreValue(subScore.score)}/{formatScoreValue(subScore.max_score)}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className={`h-full rounded-full ${scoreBarColor(percentage)}`} style={{ width: `${percentage}%` }} />
+                </div>
+                {subScore.description && <p className="mt-2 text-xs leading-5 text-slate-500">{subScore.description}</p>}
+              </article>
+            );
+          })}
         </div>
+      ) : (
+        <p className="mt-4 rounded-xl bg-white px-4 py-3 text-sm leading-6 text-slate-500 shadow-sm">
+          Chưa có điểm thành phần cho section này.
+        </p>
       )}
     </div>
   );
@@ -247,6 +568,8 @@ function SectionCriteriaPanel({ item }: { item: SectionScore }) {
 
 function RoadmapTree({ phases, roleName }: { phases: RoadmapPhase[]; roleName?: string | null }) {
   const [openPhases, setOpenPhases] = useState<Set<number>>(() => new Set(phases.map((_, index) => index)));
+  const [openSkills, setOpenSkills] = useState<Set<string>>(() => new Set());
+  const visiblePhases = useMemo(() => dedupeRoadmapPhases(phases), [phases]);
 
   const togglePhase = (index: number) => {
     setOpenPhases((current) => {
@@ -255,6 +578,18 @@ function RoadmapTree({ phases, roleName }: { phases: RoadmapPhase[]; roleName?: 
         next.delete(index);
       } else {
         next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const toggleSkill = (key: string) => {
+    setOpenSkills((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
       }
       return next;
     });
@@ -292,7 +627,7 @@ function RoadmapTree({ phases, roleName }: { phases: RoadmapPhase[]; roleName?: 
 
         <ol className="relative mt-10 space-y-10">
           <span aria-hidden="true" className="absolute bottom-8 left-6 top-5 w-0.5 bg-blue-200 sm:left-9" />
-          {phases.map((phase, index) => {
+          {visiblePhases.map((phase, index) => {
             const { phaseLabel, title } = splitPhaseTitle(phase.phase);
             const badge = phaseBadge(index);
             const groups = phaseSkillGroups(phase, index);
@@ -341,23 +676,77 @@ function RoadmapTree({ phases, roleName }: { phases: RoadmapPhase[]; roleName?: 
                       <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,0.95fr)]">
                         <span aria-hidden="true" className="absolute bottom-0 left-0 top-0 hidden border-l-2 border-dotted border-blue-300 lg:block" />
                         <div className="space-y-4 lg:pl-6">
-                          {groups.map((group) => (
+                          {groups.length > 0 ? groups.map((group) => (
                             <div key={group.title} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                               <div className="bg-slate-300 px-4 py-3">
                                 <p className="font-mono text-xs font-extrabold uppercase tracking-[0.16em] text-slate-700">{group.title}</p>
                               </div>
                               <div className="space-y-2 bg-white px-3 py-3">
                                 {group.items.map((skill) => (
-                                  <div
-                                    key={skill}
-                                    className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-semibold text-slate-800"
-                                  >
-                                    {skill}
+                                  <div key={skill}>
+                                    {(() => {
+                                      const detailKey = `${index}-${roadmapIdPart(group.title)}-${roadmapIdPart(skill)}`;
+                                      const isSkillOpen = openSkills.has(detailKey);
+                                      const topics = roadmapSkillTopics(phase, skill);
+                                      return (
+                                        <>
+                                          <button
+                                            type="button"
+                                            className="flex w-full items-center justify-between gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-left text-sm font-semibold text-slate-800 transition hover:border-yellow-400 hover:bg-yellow-100 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+                                            aria-expanded={isSkillOpen}
+                                            aria-controls={`roadmap-skill-${detailKey}`}
+                                            title="Xem nội dung cần học"
+                                            onClick={() => toggleSkill(detailKey)}
+                                          >
+                                            <span>{skill}</span>
+                                            <svg
+                                              viewBox="0 0 20 20"
+                                              className={[
+                                                'h-4 w-4 shrink-0 text-yellow-700 transition-transform duration-200',
+                                                isSkillOpen ? 'rotate-180' : 'rotate-0',
+                                              ].join(' ')}
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              aria-hidden="true"
+                                            >
+                                              <path d="m5 8 5 5 5-5" />
+                                            </svg>
+                                          </button>
+                                          <div
+                                            id={`roadmap-skill-${detailKey}`}
+                                            className={[
+                                              'grid transition-all duration-300 ease-out',
+                                              isSkillOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+                                            ].join(' ')}
+                                          >
+                                            <div className="overflow-hidden">
+                                              <ul className="mt-2 space-y-2 rounded-lg border border-yellow-200 bg-white/90 px-3 py-3">
+                                                {topics.map((topic, topicIndex) => (
+                                                  <li key={`${topicIndex}-${topic}`} className="flex gap-2 text-xs leading-5 text-slate-600">
+                                                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-yellow-100 text-[11px] font-bold text-yellow-700">
+                                                      {topicIndex + 1}
+                                                    </span>
+                                                    <span>{topic}</span>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 ))}
                               </div>
                             </div>
-                          ))}
+                          )) : (
+                            <div className="rounded-xl border border-slate-200 bg-white px-4 py-5 text-sm leading-6 text-slate-500 shadow-sm">
+                              Các kỹ năng chính của phase này đã được gom ở những phase trước để tránh lặp lại.
+                            </div>
+                          )}
                         </div>
 
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -565,7 +954,7 @@ export default function AnalysisResultPage() {
               />
             ))}
           </div>
-          {selectedSectionScore && <SectionCriteriaPanel item={selectedSectionScore} />}
+          {selectedSectionScore && <SectionSubScorePanel item={selectedSectionScore} />}
         </div>
       </section>
 
