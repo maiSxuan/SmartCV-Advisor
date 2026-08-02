@@ -461,9 +461,9 @@ export default function UploadCvPage() {
             <div className="mt-6 rounded-2xl bg-slate-50 p-5">
               <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Kết quả bạn sẽ nhận được</p>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                <li>✓ Điểm tổng quan và điểm 5 tiêu chí</li>
-                <li>✓ Danh sách lỗi phổ biến cần cải thiện</li>
-                <li>✓ Gợi ý hành động theo thứ tự ưu tiên</li>
+                <li>✓ Điểm tổng quan và các tiêu chí đánh giá</li>
+                <li>✓ Điểm chi tiết theo từng phần CV</li>
+                <li>✓ Gợi ý cải thiện cơ bản</li>
               </ul>
             </div>
 

@@ -503,8 +503,10 @@ Roadmap cần có:
 Mỗi phase cần có:
 - mục tiêu học
 - kỹ năng cần học
+- skill_details: với mỗi kỹ năng trong skills, trả về danh sách 4-6 topic nhỏ cần học cụ thể, có thể thực hành được
 - output cần tạo ra
 - lý do ưu tiên
+- Không lặp lại cùng một skill ở nhiều phase; nếu phase sau cần dùng lại skill đó, hãy thể hiện ở output/project thay vì đưa lại vào skills
 
 CV ĐÃ TÁCH SECTION:
 {build_sections_text(sections, section_weights)}
@@ -594,6 +596,7 @@ Trả về duy nhất JSON hợp lệ, không markdown, theo schema:
       "phase": "Phase 1 - Nền tảng cần củng cố",
       "goal": "...",
       "skills": ["..."],
+      "skill_details": [{{"skill": "...", "topics": ["...", "...", "...", "..."]}}],
       "output": "...",
       "reason": "..."
     }}

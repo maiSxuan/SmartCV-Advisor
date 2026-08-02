@@ -203,8 +203,14 @@ export interface RoadmapPhase {
   phase: string;
   goal: string;
   skills: string[];
+  skill_details?: RoadmapSkillDetail[];
   output: string;
   reason: string;
+}
+
+export interface RoadmapSkillDetail {
+  skill: string;
+  topics: string[];
 }
 
 export interface AnalysisIssue {

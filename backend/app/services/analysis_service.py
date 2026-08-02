@@ -17,7 +17,7 @@ from app.services.gpt_service import SECTION_RUBRIC, evaluate_sections_with_gpt,
 from app.services.role_dataset import load_default_roles
 
 
-SCORING_CONFIG_VERSION = "notebook-section-roadmap-v3"
+SCORING_CONFIG_VERSION = "notebook-section-roadmap-v4"
 TOTAL_SCORE_SCALE = 1.25
 
 IMPORTANCE_LABELS = {
@@ -26,6 +26,216 @@ IMPORTANCE_LABELS = {
     2: "Quan trọng",
     3: "Rất quan trọng / bắt buộc",
 }
+
+ROADMAP_SKILL_TOPIC_LIBRARY = [
+    {
+        "matches": ["python"],
+        "topics": [
+            "Cú pháp, kiểu dữ liệu, vòng lặp và điều kiện.",
+            "Function, module, package, virtual environment và pip.",
+            "List/dict comprehension, xử lý file CSV/JSON và exception.",
+            "OOP cơ bản, dataclass và typing để code dễ đọc hơn.",
+            "Async/await cơ bản nếu role cần backend hoặc xử lý dữ liệu.",
+            "Làm mini project đọc dữ liệu, xử lý và xuất kết quả rõ ràng.",
+        ],
+    },
+    {
+        "matches": ["machine learning", "scikit"],
+        "topics": [
+            "Quy trình train, validation, test và tránh data leakage.",
+            "Tiền xử lý dữ liệu, feature engineering và scaling.",
+            "Supervised learning: regression, classification, tree-based models.",
+            "Metric đánh giá: accuracy, precision/recall, F1, ROC-AUC, RMSE.",
+            "Cross-validation, hyperparameter tuning và xử lý overfitting.",
+            "Scikit-learn Pipeline và cách giải thích kết quả mô hình.",
+        ],
+    },
+    {
+        "matches": ["data wrangling", "feature engineering"],
+        "topics": [
+            "Làm sạch dữ liệu thiếu, trùng lặp, sai kiểu và outlier.",
+            "Tạo feature từ thời gian, text, category và dữ liệu số.",
+            "Encode category, scale numeric feature và tránh leakage.",
+            "Dùng Pandas/NumPy để build pipeline xử lý có thể lặp lại.",
+            "Ghi lại trước/sau xử lý bằng metric hoặc biểu đồ kiểm chứng.",
+        ],
+    },
+    {
+        "matches": ["pandas"],
+        "topics": [
+            "Series, DataFrame, đọc/ghi CSV, Excel và JSON.",
+            "Filter, sort, groupby, aggregate và pivot table.",
+            "Xử lý missing value, duplicate và kiểu dữ liệu ngày tháng.",
+            "Merge, join, concat nhiều bảng dữ liệu.",
+            "Tạo feature mới và chuẩn bị dữ liệu cho visualization/model.",
+            "Tối ưu thao tác vectorized thay vì loop thủ công.",
+        ],
+    },
+    {
+        "matches": ["numpy"],
+        "topics": [
+            "Array, shape, dtype và broadcasting.",
+            "Indexing, slicing, boolean mask và vectorization.",
+            "Các phép toán thống kê cơ bản trên vector/matrix.",
+            "Random sampling, seed và mô phỏng dữ liệu nhỏ.",
+            "Kết hợp NumPy với Pandas và scikit-learn.",
+        ],
+    },
+    {
+        "matches": ["sql", "postgres", "mysql"],
+        "topics": [
+            "SELECT, WHERE, GROUP BY, HAVING và aggregate function.",
+            "INNER/LEFT JOIN, subquery, CTE và window function.",
+            "Index, explain plan và tối ưu truy vấn thường gặp.",
+            "Thiết kế bảng, khóa chính/khóa ngoại và normalization.",
+            "Transaction, constraint và xử lý dữ liệu thiếu/sai.",
+            "Viết 5-10 query phân tích trên một dataset thật.",
+        ],
+    },
+    {
+        "matches": ["statistics", "probability"],
+        "topics": [
+            "Thống kê mô tả: mean, median, variance, percentile.",
+            "Xác suất, phân phối thường gặp và sampling.",
+            "Correlation, regression cơ bản và cách đọc hệ số.",
+            "Confidence interval, hypothesis testing và p-value.",
+            "A/B testing, sai lệch mẫu và diễn giải kết quả cho business.",
+        ],
+    },
+    {
+        "matches": ["linear algebra", "calculus", "mathematics"],
+        "topics": [
+            "Vector, matrix, dot product và matrix multiplication.",
+            "Eigenvalue/eigenvector ở mức trực giác cho PCA và embedding.",
+            "Derivative, gradient và ý nghĩa trong tối ưu mô hình.",
+            "Loss function, gradient descent và learning rate.",
+            "Liên hệ toán nền tảng với regression, neural network và embedding.",
+        ],
+    },
+    {
+        "matches": ["generative ai", "llm", "openai", "gemini", "claude"],
+        "topics": [
+            "Khái niệm LLM, token, context window và hallucination.",
+            "Prompt pattern: role, constraint, examples và output format.",
+            "Gọi API, quản lý key, retry, streaming và xử lý lỗi.",
+            "Function calling/tool calling và structured output.",
+            "Đánh giá chất lượng response bằng test case cố định.",
+            "Tạo mini app tích hợp LLM có logging và guardrail cơ bản.",
+        ],
+    },
+    {
+        "matches": ["prompt"],
+        "topics": [
+            "Viết prompt có mục tiêu, ngữ cảnh, ràng buộc và format đầu ra.",
+            "Few-shot examples và cách kiểm soát tone/độ dài.",
+            "Prompt cho extraction, classification, rewrite và evaluation.",
+            "Thiết kế prompt test set để so sánh nhiều phiên bản.",
+            "Kết hợp prompt với JSON schema hoặc structured output.",
+        ],
+    },
+    {
+        "matches": ["rag", "retrieval", "vector database", "vector db", "embedding"],
+        "topics": [
+            "Embedding model, chunking strategy và metadata.",
+            "Vector database, similarity search và hybrid search.",
+            "Retriever, reranker và cách giảm thông tin nhiễu.",
+            "Prompt augmentation với citation/context rõ ràng.",
+            "Metric đánh giá retrieval và answer quality.",
+            "Xây dựng demo hỏi đáp tài liệu có log truy vấn.",
+        ],
+    },
+    {
+        "matches": ["langchain", "llamaindex", "langgraph"],
+        "topics": [
+            "Document loader, splitter, embedding và vector store.",
+            "Chain/workflow cơ bản cho RAG hoặc agent.",
+            "Memory/state, tool calling và error handling.",
+            "Evaluation, tracing và cách debug prompt/context.",
+            "Đóng gói thành demo có README và ví dụ input/output.",
+        ],
+    },
+    {
+        "matches": ["model serving", "fastapi", "api development"],
+        "topics": [
+            "REST endpoint, request/response model và validation.",
+            "Load model, cache tài nguyên và kiểm soát latency.",
+            "Health check, logging, error response và versioning.",
+            "Docker hóa service và cấu hình môi trường.",
+            "Viết test API và tài liệu Swagger/OpenAPI.",
+        ],
+    },
+    {
+        "matches": ["docker", "container"],
+        "topics": [
+            "Dockerfile, image layer và build context.",
+            "Container, volume, network và environment variable.",
+            "Docker Compose cho app kèm database/service phụ.",
+            "Tối ưu image size và quản lý secret an toàn.",
+            "Đưa project CV/demo vào container chạy được trên máy khác.",
+        ],
+    },
+    {
+        "matches": ["ci/cd", "github actions", "testing strategies"],
+        "topics": [
+            "Viết test unit/integration tối thiểu cho luồng chính.",
+            "Thiết lập workflow chạy build/test khi push.",
+            "Cache dependency, secret và environment theo branch.",
+            "Tạo artifact hoặc deploy preview sau khi test pass.",
+            "Ghi badge/trạng thái CI vào README project.",
+        ],
+    },
+    {
+        "matches": ["cloud", "aws", "gcp", "azure"],
+        "topics": [
+            "Compute, storage, database và networking cơ bản trên cloud.",
+            "Deploy API/model lên một dịch vụ đơn giản.",
+            "Environment variable, secret, domain và HTTPS.",
+            "Log, metric, cost estimate và giới hạn tài nguyên.",
+            "Viết README hướng dẫn deploy/redeploy cho project.",
+        ],
+    },
+    {
+        "matches": ["mlflow"],
+        "topics": [
+            "Tracking experiment, parameter, metric và artifact.",
+            "Model registry, versioning và so sánh nhiều run.",
+            "Lưu pipeline/model kèm input example.",
+            "Tái hiện kết quả training bằng config cố định.",
+            "Kết nối MLflow với demo serving hoặc notebook.",
+        ],
+    },
+    {
+        "matches": ["data structures", "algorithm", "arrays", "trees", "graph"],
+        "topics": [
+            "Array, string, hash map, stack và queue.",
+            "Tree, binary search tree, heap và traversal.",
+            "Graph traversal: BFS, DFS và shortest path cơ bản.",
+            "Sorting/searching, recursion và dynamic programming cơ bản.",
+            "Phân tích time complexity và space complexity.",
+            "Giải bài tập nhỏ rồi ghi lại pattern học được.",
+        ],
+    },
+    {
+        "matches": ["react", "frontend"],
+        "topics": [
+            "Component, props, state và event handling.",
+            "Hooks phổ biến: useState, useEffect, useMemo và custom hook.",
+            "Form, validation và gọi API.",
+            "Routing, loading/error state và protected route.",
+            "Tối ưu render và tổ chức component theo feature.",
+        ],
+    },
+    {
+        "matches": ["typescript"],
+        "topics": [
+            "Primitive type, union, interface và type alias.",
+            "Generic, utility type và narrowing.",
+            "Type cho API response, form state và component props.",
+            "Xử lý null/undefined an toàn.",
+            "Refactor một component JavaScript sang TypeScript sạch.",
+        ],
+    },
+]
 
 SECTION_WEIGHTS = {
     "Professional Summary": 10,
@@ -259,6 +469,47 @@ def normalize_section_sub_scores(raw_sub_scores: Any) -> list[dict[str, Any]]:
     return sub_scores
 
 
+def normalize_sub_scores_to_section_score(
+    sub_scores: list[dict[str, Any]],
+    section_score: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if not sub_scores:
+        return []
+
+    max_scores = [float(item.get("max_score", 0) or 0) for item in sub_scores]
+    total_capacity = sum(max_scores)
+    if total_capacity <= 0:
+        return sub_scores
+
+    target = clamp_float(section_score.get("score"), 0.0, total_capacity)
+    current_scores = [float(item.get("score", 0) or 0) for item in sub_scores]
+    current_total = rounded_score(sum(current_scores))
+    if abs(current_total - target) < 0.1:
+        return sub_scores
+
+    positive_count = sum(1 for score in current_scores if score > 0)
+    weights = current_scores if positive_count >= 2 else max_scores
+    normalized_scores = distribute_points(target, max_scores, weights)
+    return [
+        {
+            **item,
+            "score": normalized_scores[index] if index < len(normalized_scores) else 0,
+        }
+        for index, item in enumerate(sub_scores)
+    ]
+
+
+def should_use_section_sub_scores(section: str, sub_scores: list[dict[str, Any]], section_score: dict[str, Any]) -> bool:
+    if not sub_scores:
+        return False
+
+    expected_max = clamp_float(section_score.get("max_score"), 0.0, 100.0) or float(SECTION_WEIGHTS.get(section, 0))
+    actual_max = rounded_score(sum(float(item.get("max_score", 0) or 0) for item in sub_scores))
+    blueprints = SECTION_SUB_SCORE_BLUEPRINTS.get(section, [])
+    has_complete_rubric = not blueprints or len(sub_scores) >= len(blueprints)
+    return has_complete_rubric and abs(actual_max - expected_max) < 0.1
+
+
 def build_technical_sub_scores(section_score: dict[str, Any], skill_assessment: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     blueprints = SECTION_SUB_SCORE_BLUEPRINTS["Technical Skills"]
     max_scores = [float(item["max_score"]) for item in blueprints]
@@ -331,10 +582,11 @@ def enrich_section_score(
     section = str(score.get("section", ""))
     enriched = dict(score)
     enriched["criteria"] = normalize_list(enriched.get("criteria")) or get_section_criteria(section)
-    enriched["sub_scores"] = normalize_section_sub_scores(enriched.get("sub_scores")) or build_section_sub_scores(
-        enriched,
-        skill_assessment,
-    )
+    sub_scores = normalize_section_sub_scores(enriched.get("sub_scores"))
+    if should_use_section_sub_scores(section, sub_scores, enriched):
+        enriched["sub_scores"] = normalize_sub_scores_to_section_score(sub_scores, enriched)
+    else:
+        enriched["sub_scores"] = build_section_sub_scores(enriched, skill_assessment)
     enriched["strengths"] = normalize_list(enriched.get("strengths"))
     enriched["weaknesses"] = normalize_list(enriched.get("weaknesses"))
     enriched["suggestions"] = normalize_list(enriched.get("suggestions"))
@@ -915,6 +1167,115 @@ def normalize_technical_skill_assessment(
     return normalized
 
 
+def normalize_skill_name(value: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+#/.\s-]", " ", value.lower())).strip()
+
+
+def fallback_skill_topics(skill: str) -> list[str]:
+    normalized = normalize_skill_name(skill)
+    for entry in ROADMAP_SKILL_TOPIC_LIBRARY:
+        if any(keyword in normalized for keyword in entry["matches"]):
+            return list(entry["topics"])
+    return [
+        f"Nắm khái niệm cốt lõi và thuật ngữ chính của {skill}.",
+        f"Hoàn thành 2-3 bài tập nhỏ để hiểu quy trình dùng {skill}.",
+        f"Áp dụng {skill} vào một mini project phù hợp role mục tiêu.",
+        f"Ghi lại output, lỗi thường gặp và cách xử lý để đưa vào CV.",
+    ]
+
+
+def normalize_roadmap_skill_details(raw_details: Any, skills: list[str]) -> list[dict[str, Any]]:
+    details: list[dict[str, Any]] = []
+    if isinstance(raw_details, list):
+        for item in raw_details:
+            if not isinstance(item, dict):
+                continue
+            skill = str(item.get("skill", "")).strip()
+            topics = normalize_list(item.get("topics"))
+            if skill and topics:
+                details.append({"skill": skill, "topics": topics[:8]})
+
+    details_by_skill = {normalize_skill_name(item["skill"]): item for item in details}
+    for skill in skills:
+        normalized_skill = normalize_skill_name(skill)
+        if not normalized_skill:
+            continue
+        matched_detail = next(
+            (
+                detail
+                for detail_key, detail in details_by_skill.items()
+                if detail_key == normalized_skill or detail_key in normalized_skill or normalized_skill in detail_key
+            ),
+            None,
+        )
+        if matched_detail:
+            matched_detail["skill"] = skill
+            continue
+        details.append({"skill": skill, "topics": fallback_skill_topics(skill)})
+
+    return details
+
+
+def enrich_roadmap_phase(phase: dict[str, Any]) -> dict[str, Any]:
+    skills = normalize_list(phase.get("skills"))
+    skill_details = normalize_roadmap_skill_details(phase.get("skill_details"), skills)
+    if not skills and skill_details:
+        skills = [detail["skill"] for detail in skill_details]
+    return {
+        "phase": str(phase.get("phase", "")).strip(),
+        "goal": str(phase.get("goal", "")).strip(),
+        "skills": skills,
+        "skill_details": skill_details,
+        "output": str(phase.get("output", "")).strip(),
+        "reason": str(phase.get("reason", "")).strip(),
+    }
+
+
+def is_same_roadmap_skill(left: str, right: str) -> bool:
+    left_key = normalize_skill_name(left)
+    right_key = normalize_skill_name(right)
+    if not left_key or not right_key:
+        return False
+    if left_key == right_key:
+        return True
+    shorter, longer = (left_key, right_key) if len(left_key) <= len(right_key) else (right_key, left_key)
+    return len(shorter) >= 4 and shorter in longer
+
+
+def dedupe_roadmap_phases(phases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen_skills: list[str] = []
+    deduped: list[dict[str, Any]] = []
+
+    for phase in phases:
+        raw_details = phase.get("skill_details") if isinstance(phase.get("skill_details"), list) else []
+        source_skills = normalize_list(phase.get("skills")) or [
+            str(detail.get("skill", "")).strip()
+            for detail in raw_details
+            if isinstance(detail, dict) and str(detail.get("skill", "")).strip()
+        ]
+        phase_skills: list[str] = []
+        for skill in source_skills:
+            if any(is_same_roadmap_skill(skill, seen) for seen in [*seen_skills, *phase_skills]):
+                continue
+            phase_skills.append(skill)
+            seen_skills.append(skill)
+
+        phase_details: list[dict[str, Any]] = []
+        for detail in raw_details:
+            if not isinstance(detail, dict):
+                continue
+            detail_skill = str(detail.get("skill", "")).strip()
+            if not detail_skill or not any(is_same_roadmap_skill(detail_skill, skill) for skill in phase_skills):
+                continue
+            if any(is_same_roadmap_skill(detail_skill, existing.get("skill", "")) for existing in phase_details):
+                continue
+            phase_details.append(detail)
+
+        deduped.append({**phase, "skills": phase_skills, "skill_details": phase_details})
+
+    return deduped
+
+
 def build_fallback_roadmap(
     *,
     role: dict[str, Any],
@@ -925,36 +1286,36 @@ def build_fallback_roadmap(
     important_missing = technical_assessment.get("medium_priority_missing_skills", [])[:6]
     nice_missing = technical_assessment.get("nice_to_have_missing_skills", [])[:6]
 
-    return [
-        {
+    return dedupe_roadmap_phases([
+        enrich_roadmap_phase({
             "phase": "Phase 1 - Nền tảng cần củng cố",
             "goal": "Củng cố các nền tảng còn thiếu trước khi mở rộng sang kỹ năng chuyên sâu.",
             "skills": required_missing[:3] or roadmap_lines[:2],
             "output": "Một bản CV cập nhật có section Technical Skills rõ ràng và bằng chứng nền tảng.",
             "reason": "Các kỹ năng bắt buộc ảnh hưởng trực tiếp tới điểm phù hợp role.",
-        },
-        {
+        }),
+        enrich_roadmap_phase({
             "phase": "Phase 2 - Skill chính cho role",
             "goal": "Tập trung vào kỹ năng quan trọng có tác động cao tới role mục tiêu.",
             "skills": important_missing[:4] or roadmap_lines[2:4],
             "output": "Một project hoặc mô tả kinh nghiệm thể hiện rõ kỹ năng score 2-3.",
             "reason": "Kỹ năng quan trọng nên được chứng minh bằng ngữ cảnh sử dụng thực tế.",
-        },
-        {
+        }),
+        enrich_roadmap_phase({
             "phase": "Phase 3 - Project thực hành để đưa vào CV",
             "goal": "Tạo bằng chứng có thể đưa vào Projects hoặc Experience.",
             "skills": [*required_missing[:2], *important_missing[:2]] or roadmap_lines[4:6],
             "output": "Project có tech stack, vai trò cá nhân, kết quả và link demo/GitHub nếu có.",
             "reason": "Bằng chứng trong project giúp tăng điểm Technical Skills, Projects và Experience.",
-        },
-        {
+        }),
+        enrich_roadmap_phase({
             "phase": "Phase 4 - Deployment / testing / portfolio",
             "goal": "Hoàn thiện độ tin cậy và khả năng trình bày với nhà tuyển dụng.",
             "skills": nice_missing[:4] or roadmap_lines[6:8],
             "output": "Portfolio/deployment/test case hoặc tài liệu ngắn mô tả impact dự án.",
             "reason": "Các yếu tố triển khai, kiểm thử và portfolio giúp CV nổi bật hơn khi ứng tuyển.",
-        },
-    ]
+        }),
+    ])
 
 
 def normalize_roadmap_recommendation(
@@ -962,7 +1323,7 @@ def normalize_roadmap_recommendation(
     fallback: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     if not gpt_payload or not isinstance(gpt_payload.get("roadmap_recommendation"), list):
-        return fallback
+        return dedupe_roadmap_phases(fallback)
 
     roadmap: list[dict[str, Any]] = []
     for item in gpt_payload["roadmap_recommendation"][:6]:
@@ -972,16 +1333,8 @@ def normalize_roadmap_recommendation(
         goal = str(item.get("goal", "")).strip()
         if not phase or not goal:
             continue
-        roadmap.append(
-            {
-                "phase": phase,
-                "goal": goal,
-                "skills": normalize_list(item.get("skills")),
-                "output": str(item.get("output", "")).strip(),
-                "reason": str(item.get("reason", "")).strip(),
-            }
-        )
-    return roadmap or fallback
+        roadmap.append(enrich_roadmap_phase({**item, "phase": phase, "goal": goal}))
+    return dedupe_roadmap_phases(roadmap or fallback)
 
 
 def score_section_presence(sections: dict[str, str]) -> dict[str, dict[str, Any]]:
@@ -1760,7 +2113,11 @@ def legacy_roadmap_recommendation(
     technical_assessment: dict[str, list[str]],
 ) -> list[dict[str, Any]]:
     if isinstance(result.get("RoadmapRecommendation"), list):
-        return result["RoadmapRecommendation"]
+        return dedupe_roadmap_phases([
+            enriched
+            for item in result["RoadmapRecommendation"]
+            if isinstance(item, dict) and (enriched := enrich_roadmap_phase(item))["phase"]
+        ])
     if role:
         return build_fallback_roadmap(role=role, technical_assessment=technical_assessment)
     return []

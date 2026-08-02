@@ -5,6 +5,7 @@ import AdminSkillScoresPage from './pages/AdminSkillScoresPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AnalysisResultPage from './pages/AnalysisResultPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import GuidePage from './pages/GuidePage';
 import HistoryPage from './pages/HistoryPage';
 import DashboardPage from './pages/DashboardPage';
 import LandingPage from './pages/LandingPage';
@@ -22,6 +23,7 @@ const navigationItems = [
   { label: 'Lịch sử phân tích', path: '/history', icon: 'clock' },
   { label: 'Gói dịch vụ', path: '/plans', icon: 'card' },
   { label: 'Hồ sơ cá nhân', path: '/profile', icon: 'user' },
+  { label: 'Hướng dẫn', path: '/guide', icon: 'guide' },
 ];
 
 function NavIcon({ icon }: { icon: string }) {
@@ -53,6 +55,13 @@ function NavIcon({ icon }: { icon: string }) {
       </svg>
     );
   }
+  if (icon === 'guide') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 17h.01M12 13a3 3 0 1 0-3-3M5 4h14v16H5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
       <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -78,7 +87,9 @@ function AppShell() {
       ? 'Gói dịch vụ'
       : location.pathname === '/profile'
         ? 'Hồ sơ cá nhân'
-        : 'Tổng quan';
+        : location.pathname === '/guide'
+          ? 'Hướng dẫn'
+          : 'Tổng quan';
 
   // Refresh quota mỗi khi navigate sang trang mới
   useEffect(() => {
@@ -212,6 +223,7 @@ function AppShell() {
           <Route path="/analysis/:id" element={<AnalysisResultPage />} />
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="*" element={<UploadCvPage />} />
         </Routes>
       </div>
