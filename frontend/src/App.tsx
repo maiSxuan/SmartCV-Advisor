@@ -139,12 +139,13 @@ function AppShell() {
                 key={`${item.label}-${item.path}`}
                 to={item.path}
                 className={[
-                  'flex min-h-12 items-center rounded-2xl px-4 font-medium transition',
+                  'flex min-h-12 items-center gap-3 rounded-2xl px-4 font-medium transition',
                   active
                     ? 'bg-blue-50 text-blue-600'
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700',
                 ].join(' ')}
               >
+                <NavIcon icon={item.icon} />
                 {item.label}
               </Link>
             );
@@ -210,6 +211,7 @@ function AppShell() {
           <Route path="/analysis/:id" element={<AnalysisResultPage />} />
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="/general-info" element={<GeneralInfoPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/data-policy" element={<DataPolicyPage />} />
