@@ -1,6 +1,132 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+function isValidEmail(email: string) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+}
+
+const freeBenefits = [
+  '3 lượt phân tích CV cho một chu kỳ tài khoản',
+  'Điểm tổng quan và các tiêu chí đánh giá',
+  'Điểm chi tiết theo từng phần CV',
+  'Gợi ý cải thiện cơ bản',
+  'Xem toàn bộ lịch sử phân tích',
+];
+
+const freeLimitations = [
+  'Roadmap cải thiện sau đánh giá',
+  'Gợi ý chuyên sâu',
+];
+
+const premiumBenefits = [
+  'Không giới hạn lượt phân tích CV',
+  'Roadmap cải thiện sau mỗi lần đánh giá',
+  'Xem toàn bộ lịch sử phân tích',
+  'Gợi ý cải thiện chi tiết và chuyên sâu',
+];
+
+const premiumComingSoon = [
+  'Danh sách lỗi chi tiết',
+  'Câu mẫu viết lại theo STAR',
+  'Sao chép nhanh từng câu mẫu',
+  'Nội dung viết lại nâng cao',
+  'Matching Score với mô tả công việc',
+  'AI Assistant hỗ trợ chỉnh sửa CV',
+  'Tải xuống CV đã chỉnh sửa',
+];
+
+// Modal nhập email để Smart-route Guest → Register hoặc Login
+function EmailCheckModal({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    if (!isValidEmail(email)) {
+      setError('Vui lòng nhập địa chỉ email hợp lệ.');
+      return;
+    }
+    try {
+      setChecking(true);
+      const result = await apiService.checkEmail(email.trim());
+      const search = new URLSearchParams({ email: email.trim() });
+      if (result.data.exists) {
+        // Email đã có tài khoản → đăng nhập
+        navigate(`/login?${search.toString()}`);
+      } else {
+        // Email chưa có → đăng ký
+        navigate(`/register?${search.toString()}`);
+      }
+    } catch {
+      // Nếu API lỗi, mặc định chuyển sang trang đăng ký
+      const search = new URLSearchParams({ email: email.trim() });
+      navigate(`/register?${search.toString()}`);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Bắt đầu miễn phí</h2>
+            <p className="mt-1 text-sm text-slate-500">Nhập email để tiếp tục</p>
+          </div>
+          <button
+            aria-label="Đóng"
+            className="grid h-9 w-9 place-items-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            type="button"
+            onClick={onClose}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">Địa chỉ email</span>
+            <input
+              autoFocus
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+              placeholder="email@example.com"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+
+          {error && (
+            <p className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              {error}
+            </p>
+          )}
+
+          <button
+            className="h-12 w-full rounded-2xl bg-blue-600 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+            disabled={!isValidEmail(email) || checking}
+            type="submit"
+          >
+            {checking ? 'Đang kiểm tra...' : 'Tiếp tục →'}
+          </button>
+        </form>
+
+        <p className="mt-4 text-center text-xs text-slate-400">
+          Miễn phí · Không cần thẻ tín dụng · Bảo mật dữ liệu
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -297,26 +423,42 @@ export default function LandingPage() {
             <p className="mt-3 text-slate-500">Phiên bản Free đã đủ để bắt đầu cải thiện CV của bạn</p>
           </div>
 
-          <div className="mx-auto grid max-w-3xl gap-6 md:grid-cols-2">
+          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
             {/* Free */}
             <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">Free</p>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="text-5xl font-extrabold text-slate-900">₫0</span>
               </div>
-              <ul className="mt-7 space-y-3 text-sm text-slate-600">
-                {[
-                  '3 lượt phân tích',
-                  'Điểm tổng quan & điểm thành phần',
-                  'Danh sách lỗi phổ biến',
-                  'Gợi ý cải thiện tổng quan, không kèm roadmap',
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-7 flex-1 space-y-6 text-sm text-slate-600">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Quyền lợi hiện có</p>
+                  <ul className="mt-4 space-y-3">
+                    {freeBenefits.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5">
+                        <svg viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border-t border-slate-200 pt-5">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Tính năng bị giới hạn</p>
+                  <ul className="mt-4 space-y-3 text-slate-500">
+                    {freeLimitations.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5">
+                        <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M16.5 10.5V7a4.5 4.5 0 0 0-9 0v3.5" />
+                          <path d="M6.75 10.5h10.5A1.75 1.75 0 0 1 19 12.25v6A1.75 1.75 0 0 1 17.25 20H6.75A1.75 1.75 0 0 1 5 18.25v-6a1.75 1.75 0 0 1 1.75-1.75Z" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
               <button
                 className="mt-8 h-12 w-full rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-600 transition hover:bg-blue-100"
                 type="button"
@@ -338,29 +480,36 @@ export default function LandingPage() {
                 <span className="text-5xl font-extrabold text-slate-900">₫199.000</span>
                 <span className="text-slate-400">/30 ngày</span>
               </div>
-              <ul className="mt-7 space-y-3 text-sm text-slate-600">
-                {[
-                  'Không giới hạn lượt phân tích',
-                  'Gợi ý chi tiết theo từng lỗi',
-                  'Roadmap sau khi đánh giá CV',
-                  'Tất cả quyền lợi Free',
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-                {[
-                  'Câu mẫu viết lại theo STAR',
-                  'Sao chép nhanh từng câu mẫu',
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-slate-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300 shrink-0" />
-                    <span className="flex-1">{f}</span>
-                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-7 flex-1 space-y-6 text-sm text-slate-600">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Quyền lợi hiện có</p>
+                  <ul className="mt-4 space-y-3">
+                    {premiumBenefits.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5">
+                        <svg viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border-t border-slate-200 pt-5">
+                  <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Sắp ra mắt</p>
+                  <ul className="mt-4 space-y-3">
+                    {premiumComingSoon.map((f) => (
+                      <li key={f} className="flex items-center gap-2.5 text-slate-400">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M12 8v4l3 3" />
+                          <circle cx="12" cy="12" r="9" />
+                        </svg>
+                        <span className="flex-1">{f}</span>
+                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
               <button
                 className="mt-8 h-12 w-full rounded-2xl bg-blue-600 font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md"
                 type="button"

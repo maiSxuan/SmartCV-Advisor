@@ -5,6 +5,7 @@ import AdminSkillScoresPage from './pages/AdminSkillScoresPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AnalysisResultPage from './pages/AnalysisResultPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import GuidePage from './pages/GuidePage';
 import HistoryPage from './pages/HistoryPage';
 import DashboardPage from './pages/DashboardPage';
 import LandingPage from './pages/LandingPage';
@@ -20,12 +21,56 @@ import GeneralInfoPage from './pages/GeneralInfoPage';
 import { apiService, clearAuthSession, getStoredAuthSession, getStoredAuthUser } from './services/api';
 
 const navigationItems = [
-  { label: 'Tổng quan', path: '/' },
-  { label: 'Phân tích CV', path: '/upload' },
-  { label: 'Lịch sử phân tích', path: '/history' },
-  { label: 'Gói dịch vụ', path: '/plans' },
-  { label: 'Hồ sơ cá nhân', path: '/profile' },
+  { label: 'Tổng quan', path: '/', icon: 'grid' },
+  { label: 'Phân tích CV', path: '/upload', icon: 'upload' },
+  { label: 'Lịch sử phân tích', path: '/history', icon: 'clock' },
+  { label: 'Gói dịch vụ', path: '/plans', icon: 'card' },
+  { label: 'Hồ sơ cá nhân', path: '/profile', icon: 'user' },
+  { label: 'Hướng dẫn', path: '/guide', icon: 'guide' },
 ];
+
+function NavIcon({ icon }: { icon: string }) {
+  if (icon === 'upload') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 16V5m0 0 4 4m-4-4-4 4M5 16v3h14v-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (icon === 'clock') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 7v5l3 2M5 5v5h5M5.6 14a7 7 0 1 0 1.8-6.6L5 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (icon === 'card') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M4 7h16v10H4zM4 10h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (icon === 'user') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8a7 7 0 0 0-14 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (icon === 'guide') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 17h.01M12 13a3 3 0 1 0-3-3M5 4h14v16H5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+      <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function AppShell() {
   const location = useLocation();
@@ -45,7 +90,9 @@ function AppShell() {
       ? 'Gói dịch vụ'
       : location.pathname === '/profile'
         ? 'Hồ sơ cá nhân'
-        : 'Tổng quan';
+        : location.pathname === '/guide'
+          ? 'Hướng dẫn'
+          : 'Tổng quan';
 
   // Refresh quota mỗi khi navigate sang trang mới
   useEffect(() => {
