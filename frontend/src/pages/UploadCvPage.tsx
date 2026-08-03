@@ -174,6 +174,12 @@ export default function UploadCvPage() {
     setSelectedFile(file);
     setFileError(validationMessage);
     setUploadedCv(null);
+    if (!validationMessage) {
+      void apiService.trackAnalyticsEvent('cv_selected', {
+        file_type: file.type || 'unknown',
+        file_size_bytes: file.size,
+      }).catch(() => undefined);
+    }
   };
 
   const handleUpload = async () => {

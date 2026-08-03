@@ -1775,6 +1775,51 @@ def can_view_premium_roadmap(current_plan: str | None) -> bool:
     return str(current_plan or "").lower() == "premium"
 
 
+def evaluate_plan_lifecycle(account_type: str | None, usage_doc: dict[str, Any] | None, now: datetime) -> dict[str, Any]:
+    """Evaluate effective plan state using the same lifecycle model as ChatGPT subscriptions."""
+    normalized_account_type = str(account_type or "registered").lower()
+    premium_doc = usage_doc if usage_doc and str(usage_doc.get("MaGoiDV") or "").startswith("DV_PREMIUM") else None
+    premium_plan_id = premium_doc.get("MaGoiDV") if premium_doc else None
+
+    if premium_doc:
+        expiry = premium_doc.get("HanSuDung")
+        if expiry is not None:
+            expiry_dt = expiry.replace(tzinfo=None) if hasattr(expiry, "replace") else expiry
+            if expiry_dt >= now.replace(tzinfo=None):
+                return {
+                    "effective_account_type": "premium",
+                    "plan_id": premium_plan_id or DEFAULT_PREMIUM_PLAN_ID,
+                    "limit": -1,
+                    "is_unlimited": True,
+                    "period_start": premium_doc.get("NgayBatDau") or now,
+                }
+
+    if normalized_account_type == "premium" and premium_doc and premium_doc.get("MaGoiDV") in {"DV_PREMIUM_30", "DV_PREMIUM_90"}:
+        premium_expiry = premium_doc.get("HanSuDung")
+        premium_expiry_dt = premium_expiry.replace(tzinfo=None) if hasattr(premium_expiry, "replace") else None
+        if premium_expiry_dt is not None and premium_expiry_dt >= now.replace(tzinfo=None):
+            return {
+                "effective_account_type": "premium",
+                "plan_id": premium_plan_id or DEFAULT_PREMIUM_PLAN_ID,
+                "limit": -1,
+                "is_unlimited": True,
+                "period_start": premium_doc.get("NgayBatDau") or now,
+            }
+
+    free_period_start = now
+    if premium_doc and premium_doc.get("HanSuDung"):
+        free_period_start = premium_doc["HanSuDung"]
+    if usage_doc and str(usage_doc.get("MaGoiDV") or "") == DEFAULT_FREE_PLAN_ID:
+        free_period_start = usage_doc.get("NgayBatDau") or now
+    return {
+        "effective_account_type": "registered",
+        "plan_id": DEFAULT_FREE_PLAN_ID,
+        "limit": 3,
+        "is_unlimited": False,
+        "period_start": free_period_start,
+    }
+
+
 async def resolve_quota_state(db: Any, user_id: str, now: datetime) -> dict[str, Any]:
     """Đọc (và nếu cần, tự làm mới) trạng thái gói dịch vụ hiện tại của user.
 
@@ -1785,39 +1830,35 @@ async def resolve_quota_state(db: Any, user_id: str, now: datetime) -> dict[str,
     """
     customer = await db["KHACHHANG"].find_one({"_id": user_id})
     account_type = str((customer or {}).get("LoaiKH", "registered")).lower()
-    is_premium = account_type == "premium"
 
     usage_doc = await db["LUOTDUNG"].find_one({"MaKH": user_id}, sort=[("HanSuDung", -1)])
-    han_su_dung = usage_doc.get("HanSuDung") if usage_doc else None
-    is_active = bool(han_su_dung) and han_su_dung.replace(tzinfo=None) >= now.replace(tzinfo=None)
+    lifecycle = evaluate_plan_lifecycle(account_type, usage_doc, now)
 
-    if is_premium:
-        # Premium: luôn không giới hạn.
-        # Đọc đúng plan_id thực tế từ LUOTDUNG (DV_PREMIUM_30 hoặc DV_PREMIUM_90).
-        # Nếu usage_doc không có hoặc không phải premium plan thì fallback về DEFAULT.
-        PREMIUM_PLAN_IDS = {"DV_PREMIUM_30", "DV_PREMIUM_90"}
-        actual_plan_id = (
-            usage_doc.get("MaGoiDV")
-            if usage_doc and usage_doc.get("MaGoiDV") in PREMIUM_PLAN_IDS
-            else DEFAULT_PREMIUM_PLAN_ID
-        )
+    if lifecycle["effective_account_type"] == "premium":
+        premium_plan = await db["GOIDV"].find_one({"_id": lifecycle["plan_id"]})
+        configured_limit = int(premium_plan.get("SoLuotPhanTich", -1)) if premium_plan else -1
         return {
-            "account_type": account_type,
-            "plan_id": actual_plan_id,
-            "limit": -1,
-            "is_unlimited": True,
-            "period_start": now.replace(tzinfo=None),
+            "account_type": lifecycle["effective_account_type"],
+            "plan_id": lifecycle["plan_id"],
+            "limit": configured_limit,
+            "is_unlimited": configured_limit == -1,
+            "period_start": lifecycle["period_start"],
         }
 
-    if not usage_doc or not is_active:
-        # Registered - gói hết hạn hoặc chưa có → cấp/làm mới chu kỳ Free.
+    if account_type == "premium":
+        await db["KHACHHANG"].update_one({"_id": user_id}, {"$set": {"LoaiKH": "registered"}})
+        await db["TAIKHOAN"].update_one(
+            {"MaKH": user_id}, {"$set": {"Role": "registered", "UpdatedAt": now}}
+        )
+
+    if not usage_doc or str(usage_doc.get("MaGoiDV") or "") != DEFAULT_FREE_PLAN_ID:
         await db["LUOTDUNG"].update_one(
             {"MaKH": user_id, "MaGoiDV": DEFAULT_FREE_PLAN_ID},
             {
                 "$set": {
                     "MaKH": user_id,
                     "MaGoiDV": DEFAULT_FREE_PLAN_ID,
-                    "NgayBatDau": now,
+                    "NgayBatDau": lifecycle["period_start"],
                     "HanSuDung": now + timedelta(days=30),
                 },
                 "$setOnInsert": {
@@ -1827,10 +1868,8 @@ async def resolve_quota_state(db: Any, user_id: str, now: datetime) -> dict[str,
             upsert=True,
         )
         usage_doc = await db["LUOTDUNG"].find_one({"MaKH": user_id, "MaGoiDV": DEFAULT_FREE_PLAN_ID})
-        plan_id = DEFAULT_FREE_PLAN_ID
-    else:
-        plan_id = usage_doc.get("MaGoiDV") or DEFAULT_FREE_PLAN_ID
 
+    plan_id = usage_doc.get("MaGoiDV") or DEFAULT_FREE_PLAN_ID
     goidv_doc = await db["GOIDV"].find_one({"_id": plan_id})
     limit = int(goidv_doc.get("SoLuotPhanTich", 3)) if goidv_doc else 3
     is_unlimited = limit == -1
@@ -1842,7 +1881,7 @@ async def resolve_quota_state(db: Any, user_id: str, now: datetime) -> dict[str,
         period_start = now.replace(tzinfo=None) - timedelta(days=30)
 
     return {
-        "account_type": account_type,
+        "account_type": lifecycle["effective_account_type"],
         "plan_id": plan_id,
         "limit": limit,
         "is_unlimited": is_unlimited,
@@ -2184,8 +2223,9 @@ async def get_analysis_detail(
     analysis_id: str,
     user_id: str,
     current_plan: str | None = None,
+    allow_admin: bool = False,
 ) -> dict[str, Any]:
-    can_view_roadmap = can_view_premium_roadmap(current_plan)
+    can_view_roadmap = allow_admin or can_view_premium_roadmap(current_plan)
     try:
         result = await db["KETQUA_PTCV"].find_one({"_id": analysis_id})
     except DATABASE_ERRORS as exc:
@@ -2207,7 +2247,10 @@ async def get_analysis_detail(
             detail={"code": "ANALYSIS_NOT_FOUND", "message": "Không tìm thấy kết quả phân tích."},
         )
 
-    cv = await db["CV"].find_one({"_id": result.get("MaCV"), "MaKH": user_id})
+    cv_query: dict[str, Any] = {"_id": result.get("MaCV")}
+    if not allow_admin:
+        cv_query["MaKH"] = user_id
+    cv = await db["CV"].find_one(cv_query)
     if not cv:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

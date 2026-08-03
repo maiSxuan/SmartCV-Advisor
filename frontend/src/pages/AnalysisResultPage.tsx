@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { apiService, getApiErrorMessage } from '../services/api';
+import { apiService, getApiErrorMessage, getStoredAuthUser } from '../services/api';
+import type { FeedbackEligibility, FeedbackType } from '../services/api';
 import { sectionScoreGuides } from '../constants/scoring';
 import type { AnalysisIssue, AnalysisResult, RoadmapPhase, SectionScore } from '../types';
 
@@ -12,6 +13,32 @@ const tabs = [
   { key: 'Projects', label: 'Dự án' },
   { key: 'Technical Skills', label: 'Kỹ năng' },
   { key: 'Certifications', label: 'Chứng chỉ' },
+];
+
+const feedbackTypeOptions: Array<{ value: FeedbackType; label: string }> = [
+  { value: 'loi_ky_thuat', label: 'Lỗi kỹ thuật' },
+  { value: 'ket_qua_kho_hieu', label: 'Kết quả khó hiểu' },
+  { value: 'goi_y_chua_cu_the', label: 'Gợi ý chưa cụ thể' },
+  { value: 'nhan_xet_chua_chinh_xac', label: 'Nhận xét chưa chính xác' },
+  { value: 'quyen_rieng_tu', label: 'Quyền riêng tư' },
+  { value: 'gop_y_khac', label: 'Góp ý khác' },
+];
+
+type FeedbackBooleanKey =
+  | 'easy_to_understand'
+  | 'recommendation_specific'
+  | 'useful'
+  | 'inaccurate'
+  | 'want_reanalyze'
+  | 'willing_to_recommend';
+
+const feedbackQuestions: Array<{ key: FeedbackBooleanKey; label: string }> = [
+  { key: 'easy_to_understand', label: 'Kết quả có dễ hiểu không?' },
+  { key: 'recommendation_specific', label: 'Gợi ý có đủ cụ thể không?' },
+  { key: 'useful', label: 'Kết quả có hữu ích không?' },
+  { key: 'inaccurate', label: 'Có lỗi hoặc gợi ý nào chưa chính xác?' },
+  { key: 'want_reanalyze', label: 'Bạn có muốn phân tích lại không?' },
+  { key: 'willing_to_recommend', label: 'Bạn có sẵn sàng giới thiệu sản phẩm không?' },
 ];
 
 function ScoreDonut({ score }: { score: number }) {
@@ -879,11 +906,30 @@ function SkillList({ title, items, tone = 'slate' }: { title: string; items: str
 
 export default function AnalysisResultPage() {
   const { id } = useParams<{ id: string }>();
+  const isAdminViewer = getStoredAuthUser()?.role === 'admin';
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [openSections, setOpenSections] = useState<Set<string>>(() => new Set());
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackMessageTone, setFeedbackMessageTone] = useState<'success' | 'error'>('success');
+  const [feedbackEligibility, setFeedbackEligibility] = useState<FeedbackEligibility | null>(null);
+  const [feedbackEligibilityLoading, setFeedbackEligibilityLoading] = useState(true);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState({
+    feedback_type: 'gop_y_khac' as FeedbackType,
+    rating: 5,
+    easy_to_understand: true,
+    recommendation_specific: true,
+    useful: true,
+    inaccurate: false,
+    want_reanalyze: false,
+    willing_to_recommend: true,
+    comment: '',
+  });
 
   useEffect(() => {
     const fetchResult = async () => {
@@ -897,14 +943,35 @@ export default function AnalysisResultPage() {
         if (firstSection) {
           setOpenSections(new Set([firstSection]));
         }
+        if (isAdminViewer) {
+          setFeedbackOpen(false);
+          setFeedbackEligibilityLoading(false);
+        } else {
+          setFeedbackEligibilityLoading(true);
+          try {
+            const eligibilityResponse = await apiService.getFeedbackEligibility(id);
+            setFeedbackEligibility(eligibilityResponse.data);
+            setFeedbackOpen(eligibilityResponse.data.can_submit);
+          } catch (eligibilityError) {
+            setFeedbackEligibility({
+              can_submit: false,
+              reason: getApiErrorMessage(eligibilityError),
+              existing_feedback_id: null,
+            });
+            setFeedbackOpen(false);
+          } finally {
+            setFeedbackEligibilityLoading(false);
+          }
+        }
       } catch (error) {
         setErrorMessage(getApiErrorMessage(error));
+        setFeedbackEligibilityLoading(false);
       } finally {
         setLoading(false);
       }
     };
     fetchResult();
-  }, [id]);
+  }, [id, isAdminViewer]);
 
   const visibleIssues = useMemo(() => {
     if (!result) return [];
@@ -965,6 +1032,48 @@ export default function AnalysisResultPage() {
     }
   };
 
+  const handleFeedbackSubmit = async () => {
+    if (!id || !feedbackEligibility?.can_submit || feedbackSubmitted) return;
+    setFeedbackSubmitting(true);
+    setFeedbackMessage('');
+    try {
+      const response = await apiService.submitFeedback({
+        analysis_id: id,
+        feedback_type: feedbackForm.feedback_type,
+        rating: feedbackForm.rating,
+        easy_to_understand: feedbackForm.easy_to_understand,
+        recommendation_specific: feedbackForm.recommendation_specific,
+        useful: feedbackForm.useful,
+        inaccurate: feedbackForm.inaccurate,
+        want_reanalyze: feedbackForm.want_reanalyze,
+        willing_to_recommend: feedbackForm.willing_to_recommend,
+        comment: feedbackForm.comment,
+      });
+      setFeedbackMessage('Cảm ơn bạn đã gửi phản hồi! Phản hồi được ghi nhận cho chu kỳ tài khoản hiện tại.');
+      setFeedbackMessageTone('success');
+      setFeedbackSubmitted(true);
+      setFeedbackEligibility({
+        can_submit: false,
+        reason: 'Bạn đã gửi phản hồi trong chu kỳ tài khoản hiện tại.',
+        existing_feedback_id: response.data._id,
+      });
+      setFeedbackOpen(false);
+    } catch (error) {
+      setFeedbackMessage(getApiErrorMessage(error));
+      setFeedbackMessageTone('error');
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
+  const handleReanalysisClick = () => {
+    if (!id || isAdminViewer) return;
+    void apiService.trackAnalyticsEvent('analysis_restarted', { analysis_id: id }).catch(() => undefined);
+  };
+
+  const canSubmitFeedback = feedbackEligibility?.can_submit === true && !feedbackSubmitted;
+  const feedbackAlreadySubmitted = feedbackSubmitted || Boolean(feedbackEligibility?.existing_feedback_id);
+
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-8">
       <div className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-center md:justify-between">
@@ -975,10 +1084,11 @@ export default function AnalysisResultPage() {
           <h1 className="mt-2 text-3xl font-bold text-slate-950">Kết quả tổng quan</h1>
         </div>
         <Link
-          to="/upload"
+          to={isAdminViewer ? '/admin/feedback' : '/upload'}
+          onClick={handleReanalysisClick}
           className="inline-flex justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700"
         >
-          Phân tích CV khác
+          {isAdminViewer ? 'Quay lại phản hồi' : 'Phân tích CV khác'}
         </Link>
       </div>
 
@@ -1011,6 +1121,106 @@ export default function AnalysisResultPage() {
       </section>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className={`border-b border-slate-200 p-6 ${isAdminViewer ? 'hidden' : ''}`}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Phản hồi sau phân tích</h2>
+              <p className="text-sm text-slate-500">
+                {canSubmitFeedback
+                  ? 'Mời bạn dành một phút đánh giá kết quả vừa nhận được.'
+                  : 'Mỗi chu kỳ tài khoản được gửi một phản hồi.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={feedbackEligibilityLoading || !canSubmitFeedback}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              onClick={() => setFeedbackOpen((prev) => !prev)}
+            >
+              {feedbackEligibilityLoading
+                ? 'Đang kiểm tra...'
+                : !canSubmitFeedback
+                  ? feedbackAlreadySubmitted ? 'Đã gửi phản hồi' : 'Không thể gửi'
+                  : feedbackOpen
+                    ? 'Đóng biểu mẫu'
+                    : 'Gửi phản hồi'}
+            </button>
+          </div>
+          {feedbackMessage && (
+            <p className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+              feedbackMessageTone === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-red-200 bg-red-50 text-red-700'
+            }`}>
+              {feedbackMessage}
+            </p>
+          )}
+          {!feedbackEligibilityLoading && !canSubmitFeedback && !feedbackMessage && feedbackEligibility?.reason && (
+            <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              {feedbackEligibility.reason}
+            </p>
+          )}
+          {feedbackOpen && canSubmitFeedback && (
+            <div className="mt-4 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block text-sm font-medium text-slate-700">
+                  Loại phản hồi
+                  <select
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    value={feedbackForm.feedback_type}
+                    onChange={(event) => setFeedbackForm((prev) => ({ ...prev, feedback_type: event.target.value as FeedbackType }))}
+                  >
+                    {feedbackTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-slate-700">
+                  Đánh giá tổng thể (1-5)
+                  <select
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    value={feedbackForm.rating}
+                    onChange={(event) => setFeedbackForm((prev) => ({ ...prev, rating: Number(event.target.value) }))}
+                  >
+                    {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {feedbackQuestions.map((question) => (
+                  <label key={question.key} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
+                    <span className="block min-h-10 font-medium">{question.label}</span>
+                    <select
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
+                      value={String(feedbackForm[question.key])}
+                      onChange={(event) => setFeedbackForm((prev) => ({
+                        ...prev,
+                        [question.key]: event.target.value === 'true',
+                      }))}
+                    >
+                      <option value="true">Có</option>
+                      <option value="false">Không</option>
+                    </select>
+                  </label>
+                ))}
+              </div>
+              <label className="block text-sm font-medium text-slate-700">
+                Bình luận
+                <textarea
+                  className="mt-2 min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  value={feedbackForm.comment}
+                  onChange={(event) => setFeedbackForm((prev) => ({ ...prev, comment: event.target.value }))}
+                />
+              </label>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300" onClick={() => void handleFeedbackSubmit()} disabled={feedbackSubmitting || !canSubmitFeedback}>
+                  {feedbackSubmitting ? 'Đang gửi...' : 'Gửi phản hồi'}
+                </button>
+                <button type="button" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600" onClick={() => setFeedbackOpen(false)}>
+                  Hủy
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex gap-1 overflow-x-auto border-b border-slate-200 px-5">
           {tabs.map((tab) => (
             <button

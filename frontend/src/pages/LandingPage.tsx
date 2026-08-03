@@ -1,10 +1,45 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FreePricingCard, PremiumPricingCard } from '../components/PricingCards';
+import { PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
+import { apiService } from '../services/api';
+import type { ServicePlan } from '../services/api';
 
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [selectedCycle, setSelectedCycle] = useState<PremiumCycle>('30');
+  const [servicePlans, setServicePlans] = useState<ServicePlan[]>([]);
+  const [servicePlansLoaded, setServicePlansLoaded] = useState(false);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    void apiService.trackPublicAnalyticsEvent('landing_page_view').catch(() => undefined);
+    void apiService.getPlans()
+      .then((response) => {
+        setServicePlans(response.data);
+        setServicePlansLoaded(true);
+        const availableCycles = (['30', '90'] as PremiumCycle[]).filter((cycle) =>
+          response.data.some((plan) => plan.plan_id === `DV_PREMIUM_${cycle}`));
+        setSelectedCycle((current) => availableCycles.includes(current) ? current : (availableCycles[0] ?? current));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const freePlan = servicePlans.find((plan) => plan.plan_id === 'DV_FREE');
+  const premiumPlanFor = (cycle: PremiumCycle) => servicePlans.find((plan) => plan.plan_id === `DV_PREMIUM_${cycle}`);
+  const premiumCycles = servicePlansLoaded
+    ? (['30', '90'] as PremiumCycle[]).filter((cycle) => Boolean(premiumPlanFor(cycle)))
+    : (['30', '90'] as PremiumCycle[]);
+  const selectedPremiumPlan = premiumPlanFor(selectedCycle);
+
+  const handleCtaClick = (messageVariant: string) => {
+    void apiService.trackPublicAnalyticsEvent('cta_clicked', { message_variant: messageVariant }).catch(() => undefined);
+    navigate('/register');
+  };
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -70,7 +105,7 @@ export default function LandingPage() {
           <button
             className="h-9 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-95"
             type="button"
-            onClick={() => navigate('/register')}
+            onClick={() => handleCtaClick('header_free_analysis')}
           >
             Phân tích CV miễn phí
           </button>
@@ -106,7 +141,7 @@ export default function LandingPage() {
               <button
                 className="inline-flex h-13 items-center rounded-2xl bg-blue-600 px-8 text-base font-bold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/30 active:scale-95"
                 type="button"
-                onClick={() => navigate('/register')}
+                onClick={() => handleCtaClick('hero_free_analysis')}
               >
                 Phân tích CV miễn phí
               </button>
@@ -267,81 +302,46 @@ export default function LandingPage() {
               Bắt đầu miễn phí, nâng cấp khi cần
             </h2>
             <p className="mt-3 text-slate-500">Phiên bản Free đã đủ để bắt đầu cải thiện CV của bạn</p>
+            {premiumCycles.length > 0 && (
+            <div className="mt-6 inline-flex rounded-2xl bg-slate-200/70 p-1.5 shadow-inner shadow-slate-300/50" role="group" aria-label="Chọn thời hạn gói Premium">
+              {premiumCycles.map((cycle) => (
+                <button
+                  key={cycle}
+                  type="button"
+                  aria-pressed={selectedCycle === cycle}
+                  onClick={() => setSelectedCycle(cycle)}
+                  className={`min-w-24 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
+                    selectedCycle === cycle
+                      ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-200'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {premiumPlanFor(cycle)?.duration_days
+                    ? `${premiumPlanFor(cycle)?.duration_days} ngày`
+                    : PREMIUM_PLANS[cycle].durationLabel}
+                </button>
+              ))}
+            </div>
+            )}
           </div>
 
-          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
-            {/* Free */}
-            <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">Free</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-5xl font-extrabold text-slate-900">₫0</span>
-              </div>
-              <ul className="mt-7 space-y-3 text-sm text-slate-600">
-                {[
-                  '3 lượt phân tích',
-                  'Điểm tổng quan & điểm thành phần',
-                  'Danh sách lỗi phổ biến',
-                  'Gợi ý cải thiện tổng quan, không kèm roadmap',
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                className="mt-8 h-12 w-full rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-600 transition hover:bg-blue-100"
-                type="button"
-                onClick={() => navigate('/register')}
-              >
-                Đăng ký miễn phí
-              </button>
-            </div>
-
-            {/* Premium */}
-            <div className="relative flex flex-col rounded-3xl border-2 border-blue-500 bg-white p-8 shadow-xl shadow-blue-100">
-              <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-4 py-1 text-xs font-bold text-white shadow">
-                Phổ biến nhất
-              </span>
-              <p className="text-sm font-semibold uppercase tracking-widest text-blue-600">
-                Premium — Job Search Pass
-              </p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-5xl font-extrabold text-slate-900">₫199.000</span>
-                <span className="text-slate-400">/30 ngày</span>
-              </div>
-              <ul className="mt-7 space-y-3 text-sm text-slate-600">
-                {[
-                  'Không giới hạn lượt phân tích',
-                  'Gợi ý chi tiết theo từng lỗi',
-                  'Roadmap sau khi đánh giá CV',
-                  'Tất cả quyền lợi Free',
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-                {[
-                  'Câu mẫu viết lại theo STAR',
-                  'Sao chép nhanh từng câu mẫu',
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-slate-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300 shrink-0" />
-                    <span className="flex-1">{f}</span>
-                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                className="mt-8 h-12 w-full rounded-2xl bg-blue-600 font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md"
-                type="button"
-                onClick={() => navigate('/register')}
-              >
-                Xem chi tiết Premium
-              </button>
-            </div>
+          <div className="mx-auto grid max-w-4xl items-stretch gap-6 md:grid-cols-2">
+            {(!servicePlansLoaded || freePlan) && (
+              <FreePricingCard plan={freePlan} actionLabel="Đăng ký miễn phí" onAction={() => handleCtaClick('pricing_free')} />
+            )}
+            {premiumCycles.length > 0 && (
+              <PremiumPricingCard
+                cycle={selectedCycle}
+                plan={selectedPremiumPlan}
+                recommended={selectedCycle === '90'}
+                actionLabel={`Chọn ${selectedPremiumPlan?.name || PREMIUM_PLANS[selectedCycle].label}`}
+                onAction={() => handleCtaClick(`pricing_premium_${selectedCycle}`)}
+              />
+            )}
           </div>
+          {servicePlansLoaded && !freePlan && premiumCycles.length === 0 && (
+            <p className="text-center text-sm text-slate-500">Hiện chưa có gói dịch vụ đang hoạt động.</p>
+          )}
         </div>
       </section>
 
@@ -356,7 +356,7 @@ export default function LandingPage() {
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs sm:gap-5 sm:text-sm">
             <button
               type="button"
-              onClick={() => navigate('/register')}
+              onClick={() => handleCtaClick('footer_free_analysis')}
               className="hover:text-blue-600 transition-colors"
             >
               Phân tích CV miễn phí

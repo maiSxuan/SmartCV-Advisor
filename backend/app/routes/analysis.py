@@ -11,7 +11,9 @@ from app.services.analysis_service import (
     get_analysis_detail,
     get_role_by_id,
     list_career_roles,
+    resolve_quota_state,
 )
+from app.services.product_analytics_service import record_product_event_safely
 
 router = APIRouter(prefix="/api/v1/analyses", tags=["Analysis"])
 
@@ -70,7 +72,8 @@ async def get_analysis_history(
     # Thực thi truy vấn với AsyncIOMotorClient
     try:
         cursor = db["KETQUA_PTCV"].aggregate(pipeline)
-        history_list = await cursor.to_list(length=limit)
+        # Lịch sử không phải quyền lợi Premium: trả toàn bộ cho mọi gói.
+        history_list = await cursor.to_list(length=None)
     except DATABASE_ERRORS:
         return {
             "data": [],
@@ -96,36 +99,31 @@ async def get_analysis_history(
                 resolved_role_id = LEGACY_ROLE_ID_ALIASES.get(item["role_id"], item["role_id"])
                 item["role_name"] = role_name_by_id.get(resolved_role_id)
 
-    # BR2: Registered User chỉ xem được số lượng kết quả giới hạn (Ví dụ: 3 CV gần nhất)
-    if user["current_plan"] != "premium":
-        return {
-            "data": history_list[:3],
-            "access_level": "free",
-            "meta": {
-                "visible_count": min(len(history_list), 3),
-                "locked_count": max(0, len(history_list) - 3),
-                "free_history_limit": 3
-            },
-            "message": "Nâng cấp Premium để xem toàn bộ lịch sử."
-        }
-    
     return {
         "data": history_list,
-        "access_level": "premium",
+        "access_level": user["current_plan"],
         "meta": {
             "visible_count": len(history_list),
             "locked_count": 0,
             "free_history_limit": 3
-        }
+        },
+        "message": "Toàn bộ lịch sử phân tích được hiển thị cho cả gói Free và Premium."
     }
 
 @router.get("/{analysis_id}", summary="UC-015: Xem điểm tổng quan, điểm thành phần và lỗi cơ bản")
 async def get_analysis_result(analysis_id: str, user: dict = Depends(get_current_user)):
+    from datetime import datetime, timezone
+
+    effective_plan = user.get("current_plan")
+    if user.get("role") != "admin":
+        quota_state = await resolve_quota_state(db, user["user_id"], datetime.now(timezone.utc))
+        effective_plan = quota_state["account_type"]
     detail = await get_analysis_detail(
         db=db,
         analysis_id=analysis_id,
         user_id=user["user_id"],
-        current_plan=user.get("current_plan"),
+        current_plan=effective_plan,
+        allow_admin=user.get("role") == "admin",
     )
     if not detail.get("role_name") and detail.get("role_id"):
         try:
@@ -134,10 +132,34 @@ async def get_analysis_result(analysis_id: str, user: dict = Depends(get_current
             detail["role_description"] = role["description"]
         except HTTPException:
             pass
-    return {"data": detail, "access_level": user["current_plan"], "error": None}
+    # The result payload already contains the actionable suggestions shown by
+    # AnalysisResultPage, so this is the real "view suggestions" funnel step.
+    if user.get("role") != "admin":
+        await record_product_event_safely(
+            db,
+            event_name="suggestions_viewed",
+            user_id=user["user_id"],
+            analysis_id=analysis_id,
+            role_id=detail.get("role_id"),
+        )
+    return {"data": detail, "access_level": effective_plan, "error": None}
 
 @router.get("/{analysis_id}/suggestions", summary="UC-016: Xem gợi ý cải thiện CV")
 async def get_suggestions(analysis_id: str, user: dict = Depends(get_current_user)):
+    from datetime import datetime, timezone
+
+    effective_plan = user.get("current_plan")
+    if user.get("role") != "admin":
+        quota_state = await resolve_quota_state(db, user["user_id"], datetime.now(timezone.utc))
+        effective_plan = quota_state["account_type"]
+    # Ownership is checked before exposing suggestions or recording analytics.
+    detail = await get_analysis_detail(
+        db=db,
+        analysis_id=analysis_id,
+        user_id=user["user_id"],
+        current_plan=effective_plan,
+        allow_admin=user.get("role") == "admin",
+    )
     # Truy xuất trực tiếp các gợi ý từ collection GOIY_CAITHIEN
     cursor = db["GOIY_CAITHIEN"].find({"MaKQ": analysis_id}).sort("DoUuTien", 1)
     suggestions_from_db = await cursor.to_list(length=100)
@@ -158,9 +180,18 @@ async def get_suggestions(analysis_id: str, user: dict = Depends(get_current_use
         }
         
         # Ràng buộc phân quyền nội dung: khóa premium_rewrite nếu user đang dùng gói Free
-        if formatted_sug["is_premium"] and user["current_plan"] != "premium":
+        if formatted_sug["is_premium"] and effective_plan != "premium":
             formatted_sug["premium_rewrite"] = "Tính năng khóa. Vui lòng nâng cấp Premium để xem câu mẫu chuẩn ATS."
             
         formatted_suggestions.append(formatted_sug)
 
-    return {"data": formatted_suggestions, "access_level": user["current_plan"]}
+    if user.get("role") != "admin":
+        await record_product_event_safely(
+            db,
+            event_name="suggestions_viewed",
+            user_id=user["user_id"],
+            analysis_id=analysis_id,
+            role_id=detail.get("role_id"),
+        )
+
+    return {"data": formatted_suggestions, "access_level": effective_plan}

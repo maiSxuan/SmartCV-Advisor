@@ -6,6 +6,9 @@ const adminNavItems = [
   { label: 'Vị trí IT', path: '/admin/roles' },
   { label: 'Kỹ năng & Điểm số', path: '/admin/skills' },
   { label: 'Người dùng', path: '/admin/users' },
+  { label: 'Thống kê', path: '/admin/analytics' },
+  { label: 'Phản hồi', path: '/admin/feedback' },
+  { label: 'Gói dịch vụ', path: '/admin/plans' },
 ];
 
 export default function AdminLayout({

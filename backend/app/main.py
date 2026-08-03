@@ -37,10 +37,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db import MONGODB_DB, db
 from .services.analysis_service import DATABASE_ERRORS
+from .services.database_bootstrap import ensure_default_service_plans, ensure_mvp_collections
 from .services.gpt_service import OPENAI_IMAGE_MODEL, OPENAI_MODEL, is_gpt_configured
 
 # 1. Import các router ông vừa viết
-from .routes import admin, analysis, auth, cv, premium, user
+from .routes import admin, admin_plans, analysis, analytics, auth, cv, feedback, premium, user
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173",
@@ -76,11 +77,29 @@ app.add_middleware(
 # 2. Đăng ký (include) các router này vào app chính
 app.include_router(analysis.router)
 app.include_router(admin.router)
+app.include_router(admin_plans.router)
+app.include_router(analytics.router)
+app.include_router(analytics.admin_router)
 app.include_router(auth.router)
 app.include_router(cv.router)
 app.include_router(cv.career_role_router)
+app.include_router(feedback.router)
 app.include_router(premium.router)
 app.include_router(user.router)
+
+
+@app.on_event("startup")
+async def bootstrap_mvp_database() -> None:
+    """Create the Step-4 collections/indexes when MongoDB is reachable."""
+    try:
+        await ensure_mvp_collections(db)
+        await ensure_default_service_plans(db)
+        app.state.database_bootstrap_error = None
+    except DATABASE_ERRORS as exc:
+        # Keep the health endpoint available in degraded mode. Write paths call
+        # the bootstrap again before relying on a uniqueness constraint.
+        app.state.database_bootstrap_error = exc.__class__.__name__
+
 
 @app.get("/")
 def home() -> dict[str, str]:
@@ -91,7 +110,12 @@ def home() -> dict[str, str]:
 
 @app.get("/api/health")
 async def health_check() -> dict[str, Any]:
-    database = {"available": True, "name": MONGODB_DB, "error": None}
+    database = {
+        "available": True,
+        "name": MONGODB_DB,
+        "error": None,
+        "bootstrap_error": getattr(app.state, "database_bootstrap_error", None),
+    }
     try:
         await db.command("ping")
     except DATABASE_ERRORS as exc:
@@ -99,10 +123,11 @@ async def health_check() -> dict[str, Any]:
             "available": False,
             "name": MONGODB_DB,
             "error": exc.__class__.__name__,
+            "bootstrap_error": getattr(app.state, "database_bootstrap_error", None),
         }
 
     return {
-        "status": "ok" if database["available"] else "degraded",
+        "status": "ok" if database["available"] and not database["bootstrap_error"] else "degraded",
         "database": database,
         "gpt": {
             "configured": is_gpt_configured(),

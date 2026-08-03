@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiService, getApiErrorMessage } from '../services/api';
+import type { ServicePlan } from '../services/api';
+import { getPremiumComingSoon, PREMIUM_FEATURES, PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
+import { FreePricingCard, PremiumPricingCard } from '../components/PricingCards';
 
 // ─────────────────────── Types ───────────────────────
 type PlanAction = 'upgrade-30' | 'upgrade-90' | 'renew' | 'cancel' | null;
@@ -39,26 +42,27 @@ const FAKE_BANK = {
 
 // ─────────────────────── Indicators ───────────────────────
 const CheckIcon = ({ cls = 'bg-emerald-500' }: { cls?: string }) => (
-  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${cls}`} />
-);
-const ClockIcon = ({ cls = 'bg-slate-300' }: { cls?: string }) => (
-  <span className={`h-2 w-2 shrink-0 rounded-full ${cls}`} />
-);
-const LockIcon = ({ cls = 'text-slate-400' }: { cls?: string }) => (
-  <svg className={`h-5 w-5 shrink-0 ${cls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 10.5V7a4.5 4.5 0 00-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20H6.75A1.75 1.75 0 015 18.25v-6a1.75 1.75 0 011.75-1.75z" />
+  <svg className={`mt-0.5 h-4 w-4 shrink-0 ${cls === 'bg-white' ? 'text-white' : 'text-emerald-500'}`} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <path d="m5 10 3 3 7-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
-
+const ClockIcon = ({ cls = 'bg-slate-300' }: { cls?: string }) => (
+  <svg className={`h-4 w-4 shrink-0 ${cls === 'bg-blue-300' ? 'text-blue-300' : 'text-slate-400'}`} viewBox="0 0 20 20" fill="none" aria-hidden="true">
+    <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M10 6v4l2.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 // ─────────────────────── Payment Modal ───────────────────────
 function PaymentModal({
   action,
   currentPlanId,
+  servicePlans,
   onSuccess,
   onClose,
 }: {
   action: PlanAction;
   currentPlanId: string;
+  servicePlans: ServicePlan[];
   onSuccess: (msg: string) => void;
   onClose: () => void;
 }) {
@@ -72,7 +76,20 @@ function PaymentModal({
 
   const renewCycle = currentPlanId === 'DV_PREMIUM_90' ? '90' : '30';
   const planKey = action === 'renew' ? `renew-${renewCycle}` : action;
-  const info = PLAN_INFO[planKey] ?? PLAN_INFO['upgrade-30'];
+  const targetCycle: PremiumCycle = action === 'renew'
+    ? renewCycle
+    : action === 'upgrade-90'
+      ? '90'
+      : '30';
+  const configuredPlan = servicePlans.find((plan) => plan.plan_id === `DV_PREMIUM_${targetCycle}`);
+  const fallbackInfo = PLAN_INFO[planKey] ?? PLAN_INFO['upgrade-30'];
+  const info = configuredPlan
+    ? {
+        label: action === 'renew' ? `Gia hạn ${configuredPlan.name}` : configuredPlan.name,
+        price: Number(configuredPlan.price),
+        days: configuredPlan.duration_days ?? fallbackInfo.days,
+      }
+    : fallbackInfo;
   const priceStr = info.price.toLocaleString('vi-VN') + 'đ';
 
   const startProcessing = () => {
@@ -109,7 +126,7 @@ function PaymentModal({
   };
 
   const getPaymentDetails = () => {
-    const ref = 'SCV' + Date.now().toString().slice(-8);
+    const ref = `SCV${targetCycle}${info.days}`;
     if (method === 'bank') return (
       <div className="space-y-3 rounded-2xl bg-slate-50 p-5 text-sm">
         <div className="flex justify-between"><span className="text-slate-500">Ngân hàng</span><span className="font-bold text-slate-900">{FAKE_BANK.bank}</span></div>
@@ -273,20 +290,21 @@ function CancelModal({ onConfirm, onCancel, loading, error }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
-        <h2 className="text-xl font-bold text-slate-900">Hủy gói Premium</h2>
+        <h2 className="text-xl font-bold text-slate-900">Hủy tự động gia hạn Premium</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
-          Tài khoản sẽ về gói <strong>Free</strong> ngay lập tức. Bạn sẽ bị giới hạn còn 3 lượt phân tích tổng cộng.
-          Hành động này không thể hoàn tác.
+          Sau khi xác nhận, bạn vẫn được sử dụng đầy đủ quyền lợi <strong>Premium</strong> đến hết thời hạn đã đăng ký.
+          Khi chu kỳ Premium kết thúc, tài khoản mới chuyển về gói <strong>Free</strong> và được cấp 3 lượt phân tích
+          cho chu kỳ Free mới. Toàn bộ lịch sử phân tích vẫn được giữ nguyên.
         </p>
         {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>}
         <div className="mt-6 flex gap-3">
           <button onClick={onCancel} disabled={loading}
             className="flex-1 rounded-2xl border border-slate-200 py-3 font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50">
-            Giữ gói Premium
+            Tiếp tục gia hạn
           </button>
           <button onClick={onConfirm} disabled={loading}
             className="flex-1 rounded-2xl bg-red-600 py-3 font-bold text-white transition hover:bg-red-700 disabled:opacity-50">
-            {loading ? 'Đang hủy...' : 'Xác nhận hủy'}
+            {loading ? 'Đang xử lý...' : 'Hủy tự động gia hạn'}
           </button>
         </div>
       </div>
@@ -295,127 +313,43 @@ function CancelModal({ onConfirm, onCancel, loading, error }: {
 }
 
 // ─────────────────────── Plan Cards ───────────────────────
-const FREE_FEATURES = [
-  '3 lượt phân tích CV cho một chu kỳ tài khoản',
-  'Điểm tổng quan và các tiêu chí đánh giá',
-  'Điểm chi tiết theo từng phần CV',
-  'Gợi ý cải thiện cơ bản',
-  'Xem toàn bộ lịch sử phân tích',
-];
-
-const FREE_LIMITATIONS = [
-  'Roadmap cải thiện sau đánh giá',
-  'Gợi ý chuyên sâu',
-];
-
-const PREMIUM_FEATURES = [
-  'Không giới hạn lượt phân tích CV',
-  'Roadmap cải thiện sau mỗi lần đánh giá',
-  'Xem toàn bộ lịch sử phân tích',
-  'Gợi ý cải thiện chi tiết và chuyên sâu',
-];
-
-const PREMIUM_COMING_SOON = [
-  'Danh sách lỗi chi tiết',
-  'Câu mẫu viết lại theo STAR',
-  'Sao chép nhanh từng câu mẫu',
-  'Nội dung viết lại nâng cao',
-  'Matching Score với mô tả công việc',
-  'AI Assistant hỗ trợ chỉnh sửa CV',
-  'Tải xuống CV đã chỉnh sửa',
-];
-
-function FreeCard() {
+function CurrentPremiumCard({ cycle, servicePlan, onRenew, onCancel }: { cycle: PremiumCycle; servicePlan?: ServicePlan; onRenew: () => void; onCancel: () => void }) {
+  const plan = PREMIUM_PLANS[cycle];
+  const features = servicePlan?.features?.length ? servicePlan.features : PREMIUM_FEATURES;
+  const comingSoon = servicePlan ? servicePlan.coming_soon : getPremiumComingSoon(cycle);
+  const price = Number(servicePlan?.price ?? plan.price);
+  const durationLabel = servicePlan?.duration_days ? `${servicePlan.duration_days} ngày` : plan.durationLabel;
   return (
-    <div className="relative flex flex-col rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-      <div className="absolute right-6 top-6 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">Gói hiện tại</div>
-      <h3 className="text-xl font-bold text-slate-900">Free</h3>
-      <div className="mt-4"><span className="text-5xl font-extrabold tracking-tight text-slate-900">đ0</span></div>
-      <p className="mt-2 text-sm font-medium text-slate-400">Mãi mãi miễn phí</p>
-      <div className="mb-8 mt-8 flex-1 space-y-6 text-sm font-medium">
+    <div className="relative flex min-h-[610px] flex-col rounded-2xl border-2 border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/40">
+      <div className="absolute right-5 top-5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">Gói hiện tại</div>
+      <h3 className="pr-24 text-lg font-bold text-slate-900">{servicePlan?.name || 'Premium — Job Search Pass'}</h3>
+      <div className="mt-3"><span className="text-4xl font-extrabold tracking-tight text-slate-900">đ{price.toLocaleString('vi-VN')}</span></div>
+      <p className="mt-1 text-sm font-medium text-slate-400">{durationLabel}</p>
+      <div className="mt-7 flex-1 space-y-5 text-sm font-medium">
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Quyền lợi hiện có</p>
-          <ul className="mt-4 space-y-4 text-slate-700">
-            {FREE_FEATURES.map((f, i) => (
-              <li key={i} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>
-            ))}
+          <ul className="mt-4 space-y-3.5 text-slate-600">
+            {features.map((f) => <li key={f} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>)}
           </ul>
         </div>
-        <div className="border-t border-slate-200 pt-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Tính năng bị giới hạn</p>
-          <ul className="mt-4 space-y-4 text-slate-500">
-            {FREE_LIMITATIONS.map((f, i) => (
-              <li key={i} className="flex items-start gap-3"><LockIcon /><span>{f}</span></li>
-            ))}
-          </ul>
-        </div>
+        {comingSoon.length > 0 && (
+          <div className="border-t border-slate-200 pt-5">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Sắp ra mắt</p>
+            <ul className="mt-4 space-y-3.5">
+              {comingSoon.map((f) => (
+                <li key={f} className="flex items-center gap-3 text-slate-500">
+                  <ClockIcon /><span className="flex-1">{f}</span>
+                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
-      <button disabled className="w-full rounded-2xl bg-slate-50 py-3.5 font-bold text-slate-400 cursor-not-allowed opacity-80">Gói hiện tại của bạn</button>
-    </div>
-  );
-}
-
-function CurrentPremiumCard({ cycle, onRenew, onCancel }: { cycle: '30' | '90'; onRenew: () => void; onCancel: () => void }) {
-  return (
-    <div className="relative flex flex-col rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-      <div className="absolute right-6 top-6 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">Gói hiện tại</div>
-      <h3 className="pr-20 text-xl font-bold text-slate-900">Premium — Job Search Pass</h3>
-      <div className="mt-4"><span className="text-5xl font-extrabold tracking-tight text-slate-900">đ{cycle === '30' ? '199.000' : '389.000'}</span></div>
-      <p className="mt-2 text-sm font-medium text-slate-400">{cycle === '30' ? '30 ngày' : '90 ngày'}</p>
-      <div className="mt-8 flex-1 space-y-6 text-sm font-medium">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Quyền lợi hiện có</p>
-          <ul className="mt-4 space-y-4 text-slate-700">
-            {PREMIUM_FEATURES.map((f, i) => <li key={i} className="flex items-start gap-3"><CheckIcon /><span>{f}</span></li>)}
-          </ul>
-        </div>
-        <div className="border-t border-slate-200 pt-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Sắp ra mắt</p>
-          <ul className="mt-4 space-y-4">
-            {PREMIUM_COMING_SOON.map((f, i) => (
-              <li key={i} className="flex items-center gap-3 text-slate-500">
-                <ClockIcon /><span className="flex-1">{f}</span>
-                <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="mt-7 flex flex-col gap-3">
+        <button onClick={onRenew} className="w-full rounded-xl bg-emerald-600 py-3.5 font-bold text-white transition hover:bg-emerald-700 active:scale-95">Gia hạn gói hiện tại</button>
+        <button onClick={onCancel} className="w-full rounded-xl border border-red-200 py-3.5 font-semibold text-red-600 transition hover:bg-red-50 active:scale-95">Hủy tự động gia hạn</button>
       </div>
-      <div className="mt-8 flex flex-col gap-3">
-        <button onClick={onRenew} className="w-full rounded-2xl bg-emerald-600 py-3.5 font-bold text-white transition hover:bg-emerald-700 active:scale-95">Gia hạn gói hiện tại</button>
-        <button onClick={onCancel} className="w-full rounded-2xl border border-red-200 py-3.5 font-semibold text-red-600 transition hover:bg-red-50 active:scale-95">Hủy gói Premium</button>
-      </div>
-    </div>
-  );
-}
-
-function UpgradePremiumCard({ cycle, recommended, onUpgrade }: { cycle: '30' | '90'; recommended?: boolean; onUpgrade: () => void }) {
-  return (
-    <div className={`relative flex flex-col rounded-3xl p-8 shadow-xl ${recommended ? 'bg-blue-600 shadow-blue-600/20' : 'bg-blue-500 shadow-blue-500/20'}`}>
-      {recommended && <div className="absolute right-6 top-6 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">Đề xuất</div>}
-      <h3 className="pr-20 text-xl font-bold text-white">Premium — Job Search Pass</h3>
-      <div className="mt-4"><span className="text-5xl font-extrabold tracking-tight text-white">đ{cycle === '30' ? '199.000' : '389.000'}</span></div>
-      <p className="mt-2 text-sm font-medium text-blue-200">{cycle === '30' ? '30 ngày' : '90 ngày'}</p>
-      <div className="mt-8 flex-1 space-y-6 text-sm font-medium">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-100">Quyền lợi hiện có</p>
-          <ul className="mt-4 space-y-4 text-white">
-            {PREMIUM_FEATURES.map((f, i) => <li key={i} className="flex items-start gap-3"><CheckIcon cls="bg-white" /><span>{f}</span></li>)}
-          </ul>
-        </div>
-        <div className="border-t border-blue-500/50 pt-5">
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-100">Sắp ra mắt</p>
-          <ul className="mt-4 space-y-4">
-            {PREMIUM_COMING_SOON.map((f, i) => (
-              <li key={i} className="flex items-center gap-3 text-blue-100">
-                <ClockIcon cls="bg-blue-300" /><span className="flex-1">{f}</span>
-                <span className="rounded-full border border-blue-400/30 bg-blue-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-blue-100">Sắp ra mắt</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      <button onClick={onUpgrade} className="mt-8 w-full rounded-2xl bg-white py-3.5 font-bold text-blue-600 transition hover:bg-slate-50 hover:shadow-lg active:scale-95">Nâng cấp Premium</button>
     </div>
   );
 }
@@ -429,15 +363,47 @@ export default function PlansPage() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [selectedCycle, setSelectedCycle] = useState<PremiumCycle>('30');
+  const [servicePlans, setServicePlans] = useState<ServicePlan[]>([]);
+  const [servicePlansLoaded, setServicePlansLoaded] = useState(false);
 
   const currentPlanId = quota?.current_plan_id ?? 'DV_FREE';
+  const freePlan = servicePlans.find((plan) => plan.plan_id === 'DV_FREE');
+  const planForCycle = (cycle: PremiumCycle) => servicePlans.find((plan) => plan.plan_id === `DV_PREMIUM_${cycle}`);
+  const premiumCycles = servicePlansLoaded
+    ? (['30', '90'] as PremiumCycle[]).filter((cycle) => Boolean(planForCycle(cycle)))
+    : (['30', '90'] as PremiumCycle[]);
 
   const refreshQuota = async () => {
     const result = await apiService.getQuota();
     setQuota(result.data as QuotaData);
   };
 
-  useEffect(() => { refreshQuota().finally(() => setIsLoading(false)); }, []);
+  useEffect(() => {
+    const loadInitial = async () => {
+      const [quotaResult, plansResult] = await Promise.allSettled([
+        apiService.getQuota(),
+        apiService.getPlans(),
+      ]);
+      if (quotaResult.status === 'fulfilled') setQuota(quotaResult.value.data as QuotaData);
+      if (plansResult.status === 'fulfilled') {
+        setServicePlans(plansResult.value.data);
+        setServicePlansLoaded(true);
+        const availableCycles = (['30', '90'] as PremiumCycle[]).filter((cycle) =>
+          plansResult.value.data.some((plan) => plan.plan_id === `DV_PREMIUM_${cycle}`));
+        const currentCycle: PremiumCycle | null = quotaResult.status === 'fulfilled'
+          ? quotaResult.value.data.current_plan_id === 'DV_PREMIUM_90'
+            ? '90'
+            : quotaResult.value.data.current_plan_id === 'DV_PREMIUM_30'
+              ? '30'
+              : null
+          : null;
+        setSelectedCycle((current) => currentCycle ?? (availableCycles.includes(current) ? current : (availableCycles[0] ?? current)));
+      }
+      setIsLoading(false);
+    };
+    void loadInitial();
+  }, []);
 
   const handlePaySuccess = async (msg: string) => {
     setSuccessMsg(msg);
@@ -448,9 +414,10 @@ export default function PlansPage() {
     setCancelLoading(true);
     setCancelError('');
     try {
-      await apiService.cancelPlan();
+      const response = await apiService.cancelPlan();
       setShowCancel(false);
-      setSuccessMsg('Đã hủy gói Premium. Tài khoản về gói Free.');
+      const expiry = new Date(response.data.expires_at).toLocaleDateString('vi-VN');
+      setSuccessMsg(`Đã hủy tự động gia hạn. Bạn vẫn được dùng Premium đến hết ngày ${expiry}.`);
       await refreshQuota();
     } catch (err) {
       setCancelError(getApiErrorMessage(err));
@@ -462,7 +429,7 @@ export default function PlansPage() {
   if (isLoading) return <div className="flex justify-center py-20 text-slate-400">Đang tải gói dịch vụ...</div>;
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-12">
+    <div className="mx-auto max-w-6xl px-5 pb-12 pt-5 sm:px-6">
       {successMsg && (
         <div className="mb-8 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
           <span className="text-sm font-semibold text-emerald-700">{successMsg}</span>
@@ -470,35 +437,63 @@ export default function PlansPage() {
         </div>
       )}
 
-      <div className="mb-12 text-center">
-        <h1 className="mb-4 text-2xl font-medium text-slate-500">
+      <div className="mb-8 text-center">
+        <h1 className="text-base font-medium text-slate-500 sm:text-lg">
           {currentPlanId === 'DV_FREE' ? 'Bắt đầu miễn phí, nâng cấp khi bạn cần thêm sức mạnh'
             : currentPlanId === 'DV_PREMIUM_30' ? 'Nâng cấp lên gói 90 ngày để tiết kiệm hơn'
               : 'Sử dụng công cụ AI mạnh mẽ nhất để nâng tầm CV của bạn'}
         </h1>
+        {currentPlanId !== 'DV_PREMIUM_90' && premiumCycles.length > 0 && (
+          <div className="mt-6 inline-flex rounded-2xl bg-slate-100 p-1.5 shadow-inner shadow-slate-200/60" role="group" aria-label="Chọn thời hạn gói Premium">
+            {premiumCycles.map((cycle) => (
+              <button
+                key={cycle}
+                type="button"
+                aria-pressed={selectedCycle === cycle}
+                onClick={() => setSelectedCycle(cycle)}
+                className={`min-w-24 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
+                  selectedCycle === cycle
+                    ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-200'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {planForCycle(cycle)?.duration_days
+                  ? `${planForCycle(cycle)?.duration_days} ngày`
+                  : PREMIUM_PLANS[cycle].durationLabel}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Free: 3 cards — Free (current) + Premium 30 + Premium 90 */}
       {currentPlanId === 'DV_FREE' && (
-        <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
-          <FreeCard />
-          <UpgradePremiumCard cycle="30" recommended={false} onUpgrade={() => setPayAction('upgrade-30')} />
-          <UpgradePremiumCard cycle="90" recommended onUpgrade={() => setPayAction('upgrade-90')} />
+        <div className="mx-auto grid max-w-4xl items-stretch gap-6 md:grid-cols-2">
+          <FreePricingCard plan={freePlan} current actionLabel="Gói hiện tại của bạn" />
+          {(!servicePlansLoaded || planForCycle(selectedCycle)) && (
+            <PremiumPricingCard
+              cycle={selectedCycle}
+              plan={planForCycle(selectedCycle)}
+              recommended={selectedCycle === '90'}
+              actionLabel="Nâng cấp Premium"
+              onAction={() => setPayAction(selectedCycle === '30' ? 'upgrade-30' : 'upgrade-90')}
+            />
+          )}
         </div>
       )}
 
-      {/* Premium 30: card hiện tại (gia hạn/hủy) + card 90 để nâng cấp */}
       {currentPlanId === 'DV_PREMIUM_30' && (
-        <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
-          <CurrentPremiumCard cycle="30" onRenew={() => setPayAction('renew')} onCancel={() => { setCancelError(''); setShowCancel(true); }} />
-          <UpgradePremiumCard cycle="90" recommended onUpgrade={() => setPayAction('upgrade-90')} />
+        <div className="mx-auto max-w-md">
+          {selectedCycle === '30' || (servicePlansLoaded && !planForCycle('90')) ? (
+            <CurrentPremiumCard cycle="30" servicePlan={planForCycle('30')} onRenew={() => setPayAction('renew')} onCancel={() => { setCancelError(''); setShowCancel(true); }} />
+          ) : (
+            <PremiumPricingCard cycle="90" plan={planForCycle('90')} recommended actionLabel="Nâng cấp Premium" onAction={() => setPayAction('upgrade-90')} />
+          )}
         </div>
       )}
 
-      {/* Premium 90: chỉ 1 card với gia hạn/hủy */}
       {currentPlanId === 'DV_PREMIUM_90' && (
         <div className="mx-auto max-w-md">
-          <CurrentPremiumCard cycle="90" onRenew={() => setPayAction('renew')} onCancel={() => { setCancelError(''); setShowCancel(true); }} />
+          <CurrentPremiumCard cycle="90" servicePlan={planForCycle('90')} onRenew={() => setPayAction('renew')} onCancel={() => { setCancelError(''); setShowCancel(true); }} />
         </div>
       )}
 
@@ -508,6 +503,7 @@ export default function PlansPage() {
         <PaymentModal
           action={payAction}
           currentPlanId={currentPlanId}
+          servicePlans={servicePlans}
           onSuccess={handlePaySuccess}
           onClose={() => setPayAction(null)}
         />
