@@ -40,9 +40,9 @@ export default function HistoryPage() {
     <div className="mx-auto max-w-5xl px-5 py-10">
       <h1 className="text-3xl font-bold text-slate-900 mb-8">Lịch sử phân tích</h1>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-8">
-        <div className="relative flex-1">
+      {/* Search */}
+      <div className="mb-8">
+        <div className="relative">
           <input 
             type="text" 
             placeholder="Tìm theo tên file..." 
@@ -50,9 +50,6 @@ export default function HistoryPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-12 rounded-2xl border border-slate-200 pl-4 pr-10 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
-        </div>
-        <div className="w-full sm:w-48 h-12 rounded-2xl border border-slate-200 bg-white">
-          {/* Placeholder for future filter */}
         </div>
       </div>
 
@@ -96,14 +93,7 @@ export default function HistoryPage() {
                   return (
                     <tr key={item.analysis_id} className="hover:bg-slate-50 transition">
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-500">
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </div>
-                          <span className="font-semibold text-slate-700 truncate max-w-[200px]">{item.cv_name}</span>
-                        </div>
+                        <span className="font-semibold text-slate-700 truncate max-w-[200px]">{item.cv_name}</span>
                       </td>
                       <td className="px-6 py-4 text-slate-500 font-medium">
                         {item.role_name || '-'}

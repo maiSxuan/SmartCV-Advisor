@@ -72,14 +72,11 @@ export default function LoginPage() {
             />
             <button
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
-              className="absolute inset-y-0 right-3 grid w-9 place-items-center text-slate-400 hover:text-blue-600"
+              className="absolute inset-y-0 right-3 text-xs font-semibold text-slate-400 hover:text-blue-600"
               type="button"
               onClick={() => setShowPassword((value) => !value)}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              </svg>
+              {showPassword ? 'Ẩn' : 'Hiện'}
             </button>
           </div>
         </label>

@@ -24,10 +24,10 @@ const PLAN_INFO: Record<string, { label: string; price: number; days: number }> 
   'renew-90':   { label: 'Gia hạn Premium 90 ngày', price: 389000, days: 90 },
 };
 
-const METHODS: { id: PayMethod; name: string; logo: string; desc: string }[] = [
-  { id: 'bank',  name: 'Chuyển khoản ngân hàng', logo: '🏦', desc: 'Vietcombank / MB Bank / Techcombank' },
-  { id: 'momo',  name: 'Ví MoMo',               logo: '💜', desc: 'Quét mã QR hoặc nhập SĐT' },
-  { id: 'vnpay', name: 'VNPay',                  logo: '💳', desc: 'ATM nội địa / Thẻ quốc tế' },
+const METHODS: { id: PayMethod; name: string; desc: string }[] = [
+  { id: 'bank',  name: 'Chuyển khoản ngân hàng', desc: 'Vietcombank / MB Bank / Techcombank' },
+  { id: 'momo',  name: 'Ví MoMo',               desc: 'Quét mã QR hoặc nhập SĐT' },
+  { id: 'vnpay', name: 'VNPay',                  desc: 'ATM nội địa / Thẻ quốc tế' },
 ];
 
 const FAKE_BANK = {
@@ -37,16 +37,12 @@ const FAKE_BANK = {
   branch: 'Chi nhánh TP.HCM',
 };
 
-// ─────────────────────── Icons ───────────────────────
-const CheckIcon = ({ cls = 'text-green-500' }: { cls?: string }) => (
-  <svg className={`mt-0.5 h-5 w-5 shrink-0 ${cls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-  </svg>
+// ─────────────────────── Indicators ───────────────────────
+const CheckIcon = ({ cls = 'bg-emerald-500' }: { cls?: string }) => (
+  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${cls}`} />
 );
-const ClockIcon = ({ cls = 'text-slate-400' }: { cls?: string }) => (
-  <svg className={`h-5 w-5 shrink-0 ${cls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
+const ClockIcon = ({ cls = 'bg-slate-300' }: { cls?: string }) => (
+  <span className={`h-2 w-2 shrink-0 rounded-full ${cls}`} />
 );
 const LockIcon = ({ cls = 'text-slate-400' }: { cls?: string }) => (
   <svg className={`h-5 w-5 shrink-0 ${cls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -93,13 +89,13 @@ function PaymentModal({
           try {
             if (action === 'upgrade-30') {
               await apiService.changePlan('DV_PREMIUM_30');
-              onSuccess('🎉 Nâng cấp Premium 30 ngày thành công!');
+              onSuccess('Nâng cấp Premium 30 ngày thành công!');
             } else if (action === 'upgrade-90') {
               await apiService.changePlan('DV_PREMIUM_90');
-              onSuccess('🚀 Nâng cấp Premium 90 ngày thành công!');
+              onSuccess('Nâng cấp Premium 90 ngày thành công!');
             } else if (action === 'renew') {
               const res = await apiService.renewPlan();
-              onSuccess('✅ Gia hạn thành công! Hạn mới: ' + new Date(res.data.new_expiry).toLocaleDateString('vi-VN'));
+              onSuccess('Gia hạn thành công! Hạn mới: ' + new Date(res.data.new_expiry).toLocaleDateString('vi-VN'));
             }
             setStep('done');
           } catch (err) {
@@ -129,9 +125,9 @@ function PaymentModal({
     );
     if (method === 'momo') return (
       <div className="space-y-3 text-sm">
-        <div className="mx-auto h-44 w-44 rounded-2xl bg-gradient-to-br from-pink-100 to-pink-200 flex flex-col items-center justify-center gap-2">
-          <span className="text-5xl">💜</span>
-          <span className="text-sm font-bold text-pink-700">QR MoMo (mô phỏng)</span>
+        <div className="mx-auto h-32 w-full rounded-2xl bg-pink-50 border border-pink-200 flex flex-col items-center justify-center gap-1 p-4">
+          <span className="text-xs font-bold uppercase tracking-wider text-pink-700">Ví MoMo</span>
+          <span className="text-sm font-semibold text-pink-900">Quét mã QR MoMo (mô phỏng)</span>
         </div>
         <div className="rounded-2xl bg-slate-50 p-4 space-y-2">
           <div className="flex justify-between"><span className="text-slate-500">SĐT MoMo</span><span className="font-bold text-slate-900">0901 234 567</span></div>
@@ -143,9 +139,9 @@ function PaymentModal({
     // vnpay
     return (
       <div className="space-y-3 text-sm">
-        <div className="mx-auto h-44 w-44 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-200 flex flex-col items-center justify-center gap-2">
-          <span className="text-5xl">💳</span>
-          <span className="text-sm font-bold text-blue-700">QR VNPay (mô phỏng)</span>
+        <div className="mx-auto h-32 w-full rounded-2xl bg-blue-50 border border-blue-200 flex flex-col items-center justify-center gap-1 p-4">
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-700">Cổng VNPay</span>
+          <span className="text-sm font-semibold text-blue-900">Cổng thanh toán VNPay (mô phỏng)</span>
         </div>
         <div className="rounded-2xl bg-slate-50 p-4 space-y-2">
           <div className="flex justify-between"><span className="text-slate-500">Cổng thanh toán</span><span className="font-bold text-slate-900">VNPay</span></div>
@@ -168,7 +164,7 @@ function PaymentModal({
             <h2 className="mt-0.5 text-lg font-bold text-slate-900">{info.label}</h2>
           </div>
           {step !== 'processing' && (
-            <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">✕</button>
+            <button onClick={onClose} className="rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">Đóng</button>
           )}
         </div>
 
@@ -190,19 +186,18 @@ function PaymentModal({
               <div className="space-y-2">
                 {METHODS.map(m => (
                   <button key={m.id} onClick={() => setMethod(m.id)}
-                    className={`flex w-full items-center gap-4 rounded-2xl border-2 p-4 text-left transition-all ${method === m.id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200 hover:bg-blue-50/30'}`}>
-                    <span className="text-2xl">{m.logo}</span>
+                    className={`flex w-full items-center justify-between rounded-2xl border-2 p-4 text-left transition-all ${method === m.id ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-200 hover:bg-blue-50/30'}`}>
                     <div>
                       <p className="font-semibold text-slate-900">{m.name}</p>
                       <p className="text-xs text-slate-500">{m.desc}</p>
                     </div>
-                    {method === m.id && <span className="ml-auto text-blue-500 text-lg">✓</span>}
+                    {method === m.id && <span className="text-xs font-bold text-blue-600">Đã chọn</span>}
                   </button>
                 ))}
               </div>
               <button onClick={() => setStep('details')}
                 className="mt-2 w-full rounded-2xl bg-blue-600 py-3.5 font-bold text-white transition hover:bg-blue-700 active:scale-95">
-                Tiếp theo →
+                Tiếp theo
               </button>
             </div>
           )}
@@ -219,7 +214,7 @@ function PaymentModal({
               {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>}
               <button onClick={startProcessing}
                 className="w-full rounded-2xl bg-emerald-600 py-3.5 font-bold text-white transition hover:bg-emerald-700 active:scale-95">
-                ✅ Xác nhận đã thanh toán
+                Xác nhận đã thanh toán
               </button>
               <p className="text-center text-xs text-slate-400">Hệ thống sẽ xác minh và kích hoạt gói trong vài giây.</p>
             </div>
@@ -228,16 +223,13 @@ function PaymentModal({
           {/* Step: processing */}
           {step === 'processing' && (
             <div className="flex flex-col items-center gap-5 py-6">
-              <div className="relative h-24 w-24">
-                <svg className="h-24 w-24 -rotate-90" viewBox="0 0 96 96">
-                  <circle cx="48" cy="48" r="40" fill="none" stroke="#e2e8f0" strokeWidth="8" />
-                  <circle cx="48" cy="48" r="40" fill="none" stroke="#2563eb" strokeWidth="8"
-                    strokeDasharray={`${2 * Math.PI * 40}`}
-                    strokeDashoffset={`${2 * Math.PI * 40 * (1 - progress / 100)}`}
-                    strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.15s' }} />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-lg font-bold text-blue-600">
-                  {Math.round(progress)}%
+              <div className="w-full">
+                <div className="flex justify-between text-xs font-semibold text-slate-500 mb-1">
+                  <span>Đang xử lý</span>
+                  <span>{Math.round(progress)}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-blue-600 transition-all duration-150" style={{ width: `${progress}%` }} />
                 </div>
               </div>
               <p className="text-center font-semibold text-slate-800">Đang xác minh thanh toán...</p>
@@ -249,7 +241,8 @@ function PaymentModal({
                   { label: 'Cập nhật tài khoản', done: progress >= 90 },
                 ].map(s => (
                   <div key={s.label} className={`flex items-center gap-2 ${s.done ? 'text-emerald-600 font-medium' : ''}`}>
-                    <span>{s.done ? '✓' : '○'}</span>{s.label}
+                    <span className={`h-1.5 w-1.5 rounded-full ${s.done ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    {s.label}
                   </div>
                 ))}
               </div>
@@ -259,7 +252,6 @@ function PaymentModal({
           {/* Step: done */}
           {step === 'done' && (
             <div className="flex flex-col items-center gap-4 py-6 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-4xl">🎉</div>
               <h3 className="text-xl font-bold text-slate-900">Thanh toán thành công!</h3>
               <p className="text-sm text-slate-500">Gói <strong>{info.label}</strong> đã được kích hoạt cho tài khoản của bạn.</p>
               <button onClick={onClose}
@@ -281,7 +273,6 @@ function CancelModal({ onConfirm, onCancel, loading, error }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
-        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-3xl">⚠️</div>
         <h2 className="text-xl font-bold text-slate-900">Hủy gói Premium</h2>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
           Tài khoản sẽ về gói <strong>Free</strong> ngay lập tức. Bạn sẽ bị giới hạn còn 3 lượt phân tích tổng cộng.
@@ -391,7 +382,7 @@ function CurrentPremiumCard({ cycle, onRenew, onCancel }: { cycle: '30' | '90'; 
         </div>
       </div>
       <div className="mt-8 flex flex-col gap-3">
-        <button onClick={onRenew} className="w-full rounded-2xl bg-emerald-600 py-3.5 font-bold text-white transition hover:bg-emerald-700 active:scale-95">🔄 Gia hạn gói hiện tại</button>
+        <button onClick={onRenew} className="w-full rounded-2xl bg-emerald-600 py-3.5 font-bold text-white transition hover:bg-emerald-700 active:scale-95">Gia hạn gói hiện tại</button>
         <button onClick={onCancel} className="w-full rounded-2xl border border-red-200 py-3.5 font-semibold text-red-600 transition hover:bg-red-50 active:scale-95">Hủy gói Premium</button>
       </div>
     </div>
@@ -475,7 +466,7 @@ export default function PlansPage() {
       {successMsg && (
         <div className="mb-8 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
           <span className="text-sm font-semibold text-emerald-700">{successMsg}</span>
-          <button onClick={() => setSuccessMsg('')} className="ml-auto text-emerald-500 hover:text-emerald-700">✕</button>
+          <button onClick={() => setSuccessMsg('')} className="ml-auto text-xs font-bold text-emerald-600 hover:text-emerald-800">Đóng</button>
         </div>
       )}
 
@@ -511,7 +502,7 @@ export default function PlansPage() {
         </div>
       )}
 
-      <p className="mt-10 text-center text-xs text-slate-400">🔒 Thanh toán bảo mật. Gói được kích hoạt ngay sau khi xác nhận.</p>
+      <p className="mt-10 text-center text-xs text-slate-400">Thanh toán bảo mật. Gói được kích hoạt ngay sau khi xác nhận.</p>
 
       {payAction && payAction !== 'cancel' && (
         <PaymentModal

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { ChangeEvent, FormEvent } from 'react';
 import type { UserProfile } from '../types';
 import { apiService, getApiErrorMessage } from '../services/api';
@@ -218,14 +219,10 @@ export default function ProfilePage() {
               </div>
 
               <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 px-5 font-semibold text-slate-600 transition hover:border-blue-200 hover:text-blue-600"
                 type="button"
                 onClick={() => setEditing(true)}
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-                  <path d="m4 16-.5 4 4-.5L18 9l-3.5-3.5L4 16Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                  <path d="m13.5 7 3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                </svg>
                 Chỉnh sửa thông tin
               </button>
             </div>
@@ -331,13 +328,20 @@ export default function ProfilePage() {
 
         {activeTab === 'privacy' && (
           <div className="p-7">
-            <div className="flex items-start gap-4 rounded-3xl border border-blue-100 bg-blue-50 px-5 py-4 text-slate-700">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-white text-blue-600">
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-                  <path d="M12 3 5 6v6c0 4.4 2.8 7.5 7 9 4.2-1.5 7-4.6 7-9V6l-7-3Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <p>CV của bạn không được dùng để huấn luyện mô hình nếu chưa có sự đồng ý riêng của bạn.</p>
+            <div className="flex flex-col gap-3 rounded-3xl border border-blue-100 bg-blue-50 px-5 py-4 text-slate-700 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">Cam kết bảo mật & Quyền riêng tư</p>
+                <p className="text-sm text-slate-600">CV của bạn không được dùng để huấn luyện mô hình nếu chưa có sự đồng ý riêng của bạn.</p>
+              </div>
+              <Link
+                to="/general-info"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 inline-flex items-center gap-1 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-blue-600 shadow-sm transition hover:bg-blue-50"
+              >
+                <span>Xem chi tiết chính sách</span>
+                <span>→</span>
+              </Link>
             </div>
 
             <h2 className="mt-7 text-xl font-bold">Tệp CV đã tải lên</h2>
@@ -348,19 +352,11 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 profile.uploaded_cvs.map((cv) => (
-                  <div key={cv.cv_id} className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4">
-                    <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-slate-500">
-                      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-                        <path d="M7 3h7l4 4v14H7z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                        <path d="M14 3v5h4M9 13h6M9 17h4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                      </svg>
-                    </span>
-                    <div>
-                      <p className="font-bold text-slate-800">{cv.filename}</p>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {formatDate(cv.uploaded_at)} · {cv.target_role_name ?? cv.target_role_id ?? 'Chưa chọn vị trí'}
-                      </p>
-                    </div>
+                  <div key={cv.cv_id} className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4">
+                    <p className="font-bold text-slate-800">{cv.filename}</p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {formatDate(cv.uploaded_at)} · {cv.target_role_name ?? cv.target_role_id ?? 'Chưa chọn vị trí'}
+                    </p>
                   </div>
                 ))
               )}
@@ -373,13 +369,10 @@ export default function ProfilePage() {
             )}
 
             <button
-              className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-red-200 px-5 font-bold text-red-600 transition hover:bg-red-50"
+              className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl border border-red-200 px-5 font-bold text-red-600 transition hover:bg-red-50"
               type="button"
               onClick={() => setShowDeleteDialog(true)}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-                <path d="M5 7h14M10 11v6M14 11v6M8 7l1-3h6l1 3M7 7l1 14h8l1-14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
               Xóa dữ liệu CV
             </button>
           </div>

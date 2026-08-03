@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { apiService, getApiErrorMessage } from '../services/api';
 import type { CareerRole, UploadedCv } from '../types';
 
@@ -62,7 +62,7 @@ function Stepper({ step }: { step: FlowStep }) {
                   !isDone && !isActive ? 'border-slate-200 bg-white text-slate-400' : '',
                 ].join(' ')}
               >
-                {isDone ? '✓' : item.number}
+                {item.number}
               </div>
               <span className={isDone || isActive ? 'text-sm font-medium text-blue-600' : 'text-sm text-slate-400'}>
                 {item.label}
@@ -232,10 +232,7 @@ export default function UploadCvPage() {
 
             {quotaExceeded ? (
               <div className="mt-7 flex min-h-72 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50 px-6 text-center">
-                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-2xl">
-                  🚫
-                </div>
-                <p className="mt-5 text-lg font-bold text-amber-800">Bạn đã dùng hết lượt phân tích</p>
+                <p className="text-lg font-bold text-amber-800">Bạn đã dùng hết lượt phân tích</p>
                 <p className="mt-2 text-sm text-amber-700">
                   Gói Free giới hạn tối đa 3 lượt phân tích mỗi chu kỳ.<br />
                   Nâng cấp lên Premium để phân tích không giới hạn.
@@ -317,13 +314,13 @@ export default function UploadCvPage() {
                     />
                     <span>
                       Tôi đồng ý cho phép hệ thống xử lý dữ liệu trong CV nhằm phục vụ việc phân tích và đưa ra đề xuất.{' '}
-                      <a className="text-blue-600 hover:underline" href="/privacy">
+                      <Link className="font-semibold text-blue-600 hover:underline" to="/privacy-policy" target="_blank" rel="noopener noreferrer">
                         Chính sách quyền riêng tư
-                      </a>{' '}
+                      </Link>{' '}
                       ·{' '}
-                      <a className="text-blue-600 hover:underline" href="/terms">
+                      <Link className="font-semibold text-blue-600 hover:underline" to="/data-policy" target="_blank" rel="noopener noreferrer">
                         Điều khoản xử lý dữ liệu
-                      </a>
+                      </Link>
                     </span>
                   </label>
                   {!consentAccepted && (
@@ -399,7 +396,7 @@ export default function UploadCvPage() {
                       <span className="block font-semibold text-slate-900">{role.name}</span>
                       <span className="mt-1 block text-sm leading-5 text-slate-500">{role.description}</span>
                     </span>
-                    {selected && <span className="text-xl font-bold text-blue-600">✓</span>}
+                    {selected && <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2.5 py-1 rounded-lg">Đã chọn</span>}
                   </button>
                 );
               })}
@@ -461,9 +458,18 @@ export default function UploadCvPage() {
             <div className="mt-6 rounded-2xl bg-slate-50 p-5">
               <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Kết quả bạn sẽ nhận được</p>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                <li>✓ Điểm tổng quan và các tiêu chí đánh giá</li>
-                <li>✓ Điểm chi tiết theo từng phần CV</li>
-                <li>✓ Gợi ý cải thiện cơ bản</li>
+                <li className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <span>Điểm tổng quan và điểm 5 tiêu chí</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <span>Danh sách lỗi phổ biến cần cải thiện</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <span>Gợi ý hành động theo thứ tự ưu tiên</span>
+                </li>
               </ul>
             </div>
 
@@ -513,8 +519,9 @@ export default function UploadCvPage() {
                 { label: 'Đang đánh giá theo vị trí mục tiêu...', done: progress >= 75 },
                 { label: 'Đang tổng hợp điểm và lỗi...', done: progress >= 100 },
               ].map((item, index) => (
-                <div key={item.label} className={item.done ? 'font-medium text-green-600' : index === 2 ? 'font-medium text-blue-600' : 'text-slate-300'}>
-                  {item.done ? '✓' : '○'} {item.label}
+                <div key={item.label} className={['flex items-center gap-2.5', item.done ? 'font-medium text-green-600' : index === 2 ? 'font-medium text-blue-600' : 'text-slate-400'].join(' ')}>
+                  <span className={['h-2 w-2 rounded-full', item.done ? 'bg-green-500' : index === 2 ? 'bg-blue-500' : 'bg-slate-300'].join(' ')} />
+                  <span>{item.label}</span>
                 </div>
               ))}
             </div>

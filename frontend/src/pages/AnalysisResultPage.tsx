@@ -788,13 +788,13 @@ function issueStyle(issue: AnalysisIssue) {
     return {
       wrapper: 'border-amber-200 bg-amber-50',
       label: 'text-amber-600',
-      mark: '!',
+      mark: 'M',
     };
   }
   return {
     wrapper: 'border-green-200 bg-green-50',
     label: 'text-green-600',
-    mark: '✓',
+    mark: 'L',
   };
 }
 
@@ -985,7 +985,10 @@ export default function AnalysisResultPage() {
                   <h2 className="font-bold text-slate-900">Điểm mạnh</h2>
                   <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
                     {(result.strengths.length ? result.strengths : ['CV đã có dữ liệu đủ để tạo đánh giá tổng quan.']).map((item) => (
-                      <li key={item}>✓ {item}</li>
+                      <li key={item} className="flex items-start gap-2">
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                        <span>{item}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -1034,7 +1037,10 @@ export default function AnalysisResultPage() {
                     <h3 className="text-sm font-bold text-blue-700">Điểm mạnh</h3>
                     <ul className="mt-2 space-y-1 text-sm text-blue-700">
                       {(activeSectionScore.strengths ?? []).map((item) => (
-                        <li key={item}>✓ {item}</li>
+                        <li key={item} className="flex items-start gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                          <span>{item}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>

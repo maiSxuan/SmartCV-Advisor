@@ -61,7 +61,7 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-5xl px-5 py-8 pb-20">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Xin chào, {firstName} 👋</h1>
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">Xin chào, {firstName}</h1>
         <p className="text-slate-500">
           Hôm nay là {todayStr} — Bạn còn <span className="font-bold text-blue-600">{quota?.unlimited ? 'không giới hạn' : `${quota?.remaining}/${quota?.limit} lượt`}</span>
         </p>
@@ -77,14 +77,11 @@ export default function DashboardPage() {
           onClick={() => !quotaExceeded && navigate('/upload')}
           disabled={quotaExceeded}
           title={quotaExceeded ? 'Bạn đã hết lượt phân tích. Nâng cấp Premium để tiếp tục.' : undefined}
-          className={`mt-6 sm:mt-0 flex items-center gap-2 rounded-2xl px-6 py-3.5 font-bold transition active:scale-95 ${quotaExceeded
+          className={`mt-6 sm:mt-0 rounded-2xl px-6 py-3.5 font-bold transition active:scale-95 ${quotaExceeded
             ? 'bg-white/50 text-blue-300 cursor-not-allowed'
             : 'bg-white text-blue-600 hover:bg-slate-50'
             }`}
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
           {quotaExceeded ? 'Hết lượt phân tích' : 'Tải CV lên'}
         </button>
       </div>
@@ -93,53 +90,33 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
         {/* Card 1 */}
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-          <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-500">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-          <h3 className="text-3xl font-extrabold text-slate-900">{totalAnalyzed}</h3>
-          <p className="mt-1 font-semibold text-slate-700">Lượt phân tích</p>
+          <p className="font-semibold text-slate-500 text-xs uppercase tracking-wider">Lượt phân tích</p>
+          <h3 className="mt-2 text-3xl font-extrabold text-slate-900">{totalAnalyzed}</h3>
         </div>
 
         {/* Card 2 */}
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-          <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h3 className="text-3xl font-extrabold text-slate-900">
+          <p className="font-semibold text-slate-500 text-xs uppercase tracking-wider">Lượt còn lại</p>
+          <h3 className="mt-2 text-3xl font-extrabold text-slate-900">
             {quota?.unlimited ? '∞' : `${quota?.remaining}/${quota?.limit}`}
           </h3>
-          <p className="mt-1 font-semibold text-slate-700">Lượt còn lại</p>
-          <p className="text-sm text-slate-400">{quota?.account_type === 'premium' ? 'Gói Premium' : 'Gói Free'}</p>
+          <p className="mt-1 text-xs text-slate-400">{quota?.account_type === 'premium' ? 'Gói Premium' : 'Gói Free'}</p>
         </div>
 
         {/* Card 3 */}
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-          <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-orange-500">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-            </svg>
-          </div>
-          <h3 className="text-3xl font-extrabold text-slate-900">{maxScoreItem?.overall_score || 0}</h3>
-          <p className="mt-1 font-semibold text-slate-700">Điểm cao nhất</p>
-          <p className="text-sm text-slate-400 truncate">Frontend Developer</p>
+          <p className="font-semibold text-slate-500 text-xs uppercase tracking-wider">Điểm cao nhất</p>
+          <h3 className="mt-2 text-3xl font-extrabold text-slate-900">{maxScoreItem?.overall_score || 0}</h3>
+          <p className="mt-1 text-xs text-slate-400 truncate">Frontend Developer</p>
         </div>
 
         {/* Card 4 */}
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-          <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-purple-50 text-purple-500">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h3 className="text-3xl font-extrabold text-slate-900">
+          <p className="font-semibold text-slate-500 text-xs uppercase tracking-wider">Lần phân tích gần nhất</p>
+          <h3 className="mt-2 text-3xl font-extrabold text-slate-900">
             {lastAnalyzedDate === todayStr ? 'Hôm nay' : (lastAnalyzedDate.split('/')[0] || '-')}
           </h3>
-          <p className="mt-1 font-semibold text-slate-700">Lần phân tích gần nhất</p>
-          <p className="text-sm text-slate-400">{lastAnalyzedDate}</p>
+          <p className="mt-1 text-xs text-slate-400">{lastAnalyzedDate}</p>
         </div>
       </div>
 
@@ -148,7 +125,13 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h2 className="text-xl font-bold text-slate-900">Phân tích gần đây</h2>
           {/* We omit Xem tất cả if this page is essentially the history view */}
-          <span className="text-blue-600 font-medium hover:underline cursor-pointer text-sm">Xem tất cả</span>
+          <button
+            type="button"
+            onClick={() => navigate('/history')}
+            className="text-blue-600 font-medium hover:underline cursor-pointer text-sm"
+          >
+            Xem tất cả
+          </button>
         </div>
 
         {history.length === 0 ? (
@@ -167,16 +150,9 @@ export default function DashboardPage() {
 
               return (
                 <div key={item.analysis_id} className="flex items-center justify-between p-6 hover:bg-slate-50 transition">
-                  <div className="flex items-center gap-4">
-                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-50 text-blue-500">
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-lg truncate max-w-[200px] sm:max-w-xs">{item.cv_name}</h4>
-                      <p className="text-sm text-slate-500 mt-0.5">Frontend Developer · {dateStr}</p>
-                    </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-lg truncate max-w-[200px] sm:max-w-xs">{item.cv_name}</h4>
+                    <p className="text-sm text-slate-500 mt-0.5">Frontend Developer · {dateStr}</p>
                   </div>
 
                   <div className="flex items-center gap-6">
@@ -201,16 +177,9 @@ export default function DashboardPage() {
       {/* Upgrade Banner for Free Users */}
       {quota?.account_type !== 'premium' && (
         <div className="flex flex-col sm:flex-row items-center justify-between bg-purple-50 rounded-3xl border border-purple-100 p-6 sm:p-8">
-          <div className="flex items-center gap-4 mb-4 sm:mb-0">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-purple-200 text-purple-600">
-              <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-900 text-lg">Nâng cấp Premium để mở khóa gợi ý chi tiết</h3>
-              <p className="text-sm text-slate-500 mt-1">Câu mẫu viết lại, phân tích chuyên sâu và nhiều hơn nữa.</p>
-            </div>
+          <div className="mb-4 sm:mb-0">
+            <h3 className="font-bold text-slate-900 text-lg">Nâng cấp Premium để mở khóa gợi ý chi tiết</h3>
+            <p className="text-sm text-slate-500 mt-1">Câu mẫu viết lại, phân tích chuyên sâu và nhiều hơn nữa.</p>
           </div>
           <button
             onClick={() => navigate('/plans')}

@@ -6,10 +6,8 @@ interface PasswordChecklistProps {
 
 function CheckItem({ valid, label }: { valid: boolean; label: string }) {
   return (
-    <li className={['flex items-center gap-2 text-sm', valid ? 'text-green-600' : 'text-slate-400'].join(' ')}>
-      <span className={['grid h-4 w-4 place-items-center rounded-full text-[10px]', valid ? 'bg-green-100' : 'bg-slate-100'].join(' ')}>
-        {valid ? '✓' : '•'}
-      </span>
+    <li className={['flex items-center gap-2 text-sm', valid ? 'text-green-600 font-medium' : 'text-slate-400'].join(' ')}>
+      <span className={['h-1.5 w-1.5 rounded-full', valid ? 'bg-green-500' : 'bg-slate-300'].join(' ')} />
       {label}
     </li>
   );
