@@ -1769,6 +1769,7 @@ def analyze_sections(
 
 DEFAULT_FREE_PLAN_ID = "DV_FREE"
 DEFAULT_PREMIUM_PLAN_ID = "DV_PREMIUM_30"
+PREMIUM_PLAN_IDS = {"DV_PREMIUM_30", "DV_PREMIUM_90"}
 
 
 def can_view_premium_roadmap(current_plan: str | None) -> bool:
@@ -1794,7 +1795,7 @@ def evaluate_plan_lifecycle(account_type: str | None, usage_doc: dict[str, Any] 
                     "period_start": premium_doc.get("NgayBatDau") or now,
                 }
 
-    if normalized_account_type == "premium" and premium_doc and premium_doc.get("MaGoiDV") in {"DV_PREMIUM_30", "DV_PREMIUM_90"}:
+    if normalized_account_type == "premium" and premium_doc and premium_doc.get("MaGoiDV") in PREMIUM_PLAN_IDS:
         premium_expiry = premium_doc.get("HanSuDung")
         premium_expiry_dt = premium_expiry.replace(tzinfo=None) if hasattr(premium_expiry, "replace") else None
         if premium_expiry_dt is not None and premium_expiry_dt >= now.replace(tzinfo=None):
@@ -1809,6 +1810,8 @@ def evaluate_plan_lifecycle(account_type: str | None, usage_doc: dict[str, Any] 
     free_period_start = now
     if premium_doc and premium_doc.get("HanSuDung"):
         free_period_start = premium_doc["HanSuDung"]
+    # GOIDV.HanSuDung=-1 is plan-configuration metadata only. A Free
+    # lifecycle never uses LUOTDUNG.HanSuDung as a quota reset boundary.
     if usage_doc and str(usage_doc.get("MaGoiDV") or "") == DEFAULT_FREE_PLAN_ID:
         free_period_start = usage_doc.get("NgayBatDau") or now
     return {
@@ -1831,7 +1834,18 @@ async def resolve_quota_state(db: Any, user_id: str, now: datetime) -> dict[str,
     customer = await db["KHACHHANG"].find_one({"_id": user_id})
     account_type = str((customer or {}).get("LoaiKH", "registered")).lower()
 
-    usage_doc = await db["LUOTDUNG"].find_one({"MaKH": user_id}, sort=[("HanSuDung", -1)])
+    # A legacy Free usage row still carries a datetime in HanSuDung for schema
+    # compatibility. It must never outrank an active Premium lifecycle merely
+    # because that cosmetic date happens to be later (notably at month-end).
+    usage_doc = await db["LUOTDUNG"].find_one(
+        {"MaKH": user_id, "MaGoiDV": {"$in": sorted(PREMIUM_PLAN_IDS)}},
+        sort=[("HanSuDung", -1)],
+    )
+    if not usage_doc:
+        usage_doc = await db["LUOTDUNG"].find_one(
+            {"MaKH": user_id, "MaGoiDV": DEFAULT_FREE_PLAN_ID},
+            sort=[("NgayBatDau", -1)],
+        )
     lifecycle = evaluate_plan_lifecycle(account_type, usage_doc, now)
 
     if lifecycle["effective_account_type"] == "premium":
@@ -1859,6 +1873,8 @@ async def resolve_quota_state(db: Any, user_id: str, now: datetime) -> dict[str,
                     "MaKH": user_id,
                     "MaGoiDV": DEFAULT_FREE_PLAN_ID,
                     "NgayBatDau": lifecycle["period_start"],
+                    # Keep LUOTDUNG schema-compatible with legacy datetime
+                    # sorting; Free quota continuity is anchored by NgayBatDau.
                     "HanSuDung": now + timedelta(days=30),
                 },
                 "$setOnInsert": {

@@ -39,6 +39,35 @@ export default function AdminPlansPage() {
   };
 
   const save = async (plan: AdminPlan) => {
+    const durationDays = plan.HanSuDung === null ? null : Number(plan.HanSuDung);
+    if (durationDays === null) {
+      setError(`Thời hạn của gói ${plan._id} không được để trống.`);
+      return;
+    }
+    if (!Number.isInteger(durationDays)) {
+      setError('Thời hạn phải là một số nguyên.');
+      return;
+    }
+    if (plan._id === 'DV_FREE' && durationDays !== -1) {
+      setError('Gói DV_FREE phải có thời hạn -1 (không giới hạn vòng đời Free).');
+      return;
+    }
+    if (plan._id === 'DV_FREE' && Number(plan.SoLuotPhanTich) !== 3) {
+      setError('Gói DV_FREE phải có đúng 3 lượt phân tích cho mỗi vòng đời Free.');
+      return;
+    }
+    if (plan._id !== 'DV_FREE' && ![30, 90].includes(durationDays)) {
+      setError('Gói Premium phải có thời hạn 30 hoặc 90 ngày; -1 chỉ dành cho DV_FREE.');
+      return;
+    }
+    if (plan._id === 'DV_PREMIUM_30' && durationDays !== 30) {
+      setError('Gói DV_PREMIUM_30 phải có thời hạn 30 ngày.');
+      return;
+    }
+    if (plan._id === 'DV_PREMIUM_90' && durationDays !== 90) {
+      setError('Gói DV_PREMIUM_90 phải có thời hạn 90 ngày.');
+      return;
+    }
     try {
       setSaving(plan._id);
       setError('');
@@ -46,7 +75,7 @@ export default function AdminPlansPage() {
         plan_id: plan._id,
         name: plan.TenGoi,
         price: Number(plan.Gia),
-        duration_days: plan.HanSuDung === null ? null : Number(plan.HanSuDung),
+        duration_days: durationDays,
         analysis_limit: Number(plan.SoLuotPhanTich),
         features: parseFeatureList(plan.QuyenLoi),
         coming_soon: parseFeatureList(plan.SapRaMat),
@@ -71,8 +100,25 @@ export default function AdminPlansPage() {
               <label className="block text-sm text-slate-600">Tên gói<input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={plan.TenGoi} onChange={(e) => update(plan._id, 'TenGoi', e.target.value)} /></label>
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="text-sm text-slate-600">Giá<input type="number" min="0" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={plan.Gia} onChange={(e) => update(plan._id, 'Gia', Number(e.target.value))} /></label>
-                <label className="text-sm text-slate-600">Thời hạn (ngày)<input type="number" min="0" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={plan.HanSuDung ?? ''} onChange={(e) => update(plan._id, 'HanSuDung', e.target.value === '' ? null : Number(e.target.value))} /></label>
-                <label className="text-sm text-slate-600">Lượt phân tích<input type="number" min="-1" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={plan.SoLuotPhanTich} onChange={(e) => update(plan._id, 'SoLuotPhanTich', Number(e.target.value))} /></label>
+                <label className="text-sm text-slate-600">
+                  Thời hạn
+                  <input
+                    type="number"
+                    min={plan._id === 'DV_FREE' ? -1 : 1}
+                    step="1"
+                    required
+                    aria-describedby={`duration-help-${plan._id}`}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
+                    value={plan.HanSuDung ?? ''}
+                    onChange={(e) => update(plan._id, 'HanSuDung', e.target.value === '' ? null : Number(e.target.value))}
+                  />
+                  <span id={`duration-help-${plan._id}`} className="mt-1 block text-xs leading-5 text-slate-400">
+                    {plan._id === 'DV_FREE'
+                      ? 'Nhập -1 để giữ vòng đời Free không giới hạn thời gian.'
+                      : 'Premium nhập 30 hoặc 90 ngày; -1 chỉ dành cho DV_FREE.'}
+                  </span>
+                </label>
+                <label className="text-sm text-slate-600">Lượt phân tích<input type="number" min={plan._id === 'DV_FREE' ? 3 : -1} max={plan._id === 'DV_FREE' ? 3 : undefined} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={plan.SoLuotPhanTich} onChange={(e) => update(plan._id, 'SoLuotPhanTich', Number(e.target.value))} /></label>
               </div>
               <label className="block text-sm text-slate-600">Quyền lợi (phân cách bằng dấu ;)<textarea className="mt-1 min-h-24 w-full rounded-xl border border-slate-200 px-3 py-2" value={plan.QuyenLoi} onChange={(e) => update(plan._id, 'QuyenLoi', e.target.value)} /></label>
               <label className="block text-sm text-slate-600">Tính năng sắp ra mắt (mỗi dòng hoặc phân cách bằng dấu ;)<textarea className="mt-1 min-h-24 w-full rounded-xl border border-slate-200 px-3 py-2" placeholder="Ví dụ: AI Assistant; Matching Score với mô tả công việc" value={plan.SapRaMat} onChange={(e) => update(plan._id, 'SapRaMat', e.target.value)} /></label>

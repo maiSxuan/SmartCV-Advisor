@@ -189,7 +189,7 @@ Các chức năng sau chỉ hiển thị nhãn **Sắp ra mắt** nếu xuất h
 | UC-021   | Xem roadmap cải thiện CV              | Premium                   | High    | Roadmap dựa trên kết quả CV/Role, không dựa trên JD                                                              |
 | UC-024   | Xem và quản lý lịch sử phân tích      | Registered/Premium        | Medium  | Free và Premium cùng xem lại toàn bộ lịch sử; mở lại/xóa kết quả; có pagination nhưng không giới hạn theo gói    |
 | UC-028   | Phân tích lại CV sau khi chỉnh sửa    | Registered/Premium        | High    | Tạo analysis mới, liên kết analysis trước và hiển thị thay đổi cơ bản                                            |
-| NEWUC-01 | Gửi phản hồi/đánh giá sản phẩm        | Registered/Premium        | High    | Mỗi vòng đời tài khoản chỉ gửi một lần; lưu đánh giá 1–5, câu trả lời tối thiểu, bình luận và analysis liên quan |
+| NEWUC-01 | Gửi phản hồi/đánh giá sản phẩm        | Registered/Premium        | High    | Cho phép gửi nhiều lần trong mỗi vòng đời; lưu đánh giá 1–5, câu trả lời tối thiểu, bình luận và analysis liên quan |
 
 ### 6.3. Gói dịch vụ
 
@@ -215,8 +215,8 @@ Các chức năng sau chỉ hiển thị nhãn **Sắp ra mắt** nếu xuất h
 #### NEWUC-01 — Gửi phản hồi/đánh giá sản phẩm
 
 - **Trigger:** sau khi người dùng đã xem kết quả phân tích hoặc gợi ý.
-- **Giới hạn:** mỗi `account_plan_cycle` chỉ được tạo **một** đánh giá. Người dùng có thể đánh giá một lần ở vòng đời Free, một lần ở chu kỳ Premium 30 ngày, một lần ở chu kỳ Premium 90 ngày hoặc ở các chu kỳ mới về sau.
-- **Không giới hạn theo tài khoản vĩnh viễn:** khi người dùng bước sang một cycle mới thì được quyền đánh giá lại cho cycle đó.
+- **Tần suất:** mỗi `account_plan_cycle` được tạo **nhiều** đánh giá. Quy tắc này áp dụng giống nhau cho vòng đời Free, Premium 30 ngày và Premium 90 ngày.
+- **Giữ ngữ cảnh vòng đời:** mỗi đánh giá vẫn phải lưu cycle hiện tại và analysis liên quan để phục vụ thống kê, đối soát và xử lý phản hồi.
 - **Nội dung tối thiểu phải lưu:**
   - điểm đánh giá tổng thể 1–5;
   - kết quả có dễ hiểu không;
@@ -228,7 +228,7 @@ Các chức năng sau chỉ hiển thị nhãn **Sắp ra mắt** nếu xuất h
   - bình luận tùy chọn;
   - `analysis_id` liên quan;
   - snapshot gói/cycle tại thời điểm gửi.
-- Backend phải enforce unique `(user_id, account_cycle_id)` và trả lỗi có cấu trúc nếu đã đánh giá trong cycle hiện tại.
+- Backend không được enforce unique `(user_id, account_cycle_id)`; dùng index không unique có `created_at` để truy vấn nhiều đánh giá trong cùng cycle hiệu quả.
 
 #### NEWUC-02 — Quản lý cấu hình gói
 
@@ -244,6 +244,7 @@ Admin quản lý tối thiểu:
 
 Quy tắc:
 
+- `DV_FREE.duration_days = -1` biểu thị không giới hạn thời hạn sử dụng; Premium 30/90 chỉ nhận lần lượt 30/90;
 - `history_unlimited` luôn là `true` cho Free, Premium 30 và Premium 90;
 - thay đổi cấu hình không được hồi tố chu kỳ đã bắt đầu nếu chưa có yêu cầu rõ ràng;
 - mọi thay đổi phải có audit log;
@@ -537,7 +538,7 @@ AI không được gán evidence level 3 khi skill chỉ xuất hiện trong dan
 | `subscriptions`        | thông tin đăng ký Premium, `current_period_start/end`, `cancel_at_period_end` và trạng thái |
 | `account_plan_cycles`  | vòng đời Free/Premium, quota đã dùng, thời gian bắt đầu/kết thúc và snapshot plan           |
 | `mock_transactions`    | giao dịch VNPay mô phỏng                                                                    |
-| `DANHGIASP`            | đánh giá sản phẩm theo analysis và account cycle; mỗi user/cycle chỉ một bản ghi            |
+| `DANHGIASP`            | nhiều đánh giá sản phẩm theo analysis và account cycle                                      |
 | `analytics_events`     | event funnel và nguồn Marketing                                                             |
 | `audit_logs`           | thao tác Admin và sự kiện bảo mật append-only                                               |
 
@@ -592,7 +593,7 @@ AI không được gán evidence level 3 khi skill chỉ xuất hiện trong dan
 }
 ```
 
-Rating phải nằm trong 1–5. `account_cycle_id` bắt buộc để enforce đúng một đánh giá cho mỗi vòng đời tài khoản.
+Rating phải nằm trong 1–5. `account_cycle_id` bắt buộc để gắn từng đánh giá với đúng vòng đời tài khoản.
 
 ### Index tối thiểu
 
@@ -607,7 +608,7 @@ analysis_results(previous_analysis_id)
 subscriptions(user_id, status, current_period_end)
 account_plan_cycles(user_id, started_at desc)
 account_plan_cycles(user_id, status) partial unique với `status = active`
-DANHGIASP(user_id, account_cycle_id) unique
+DANHGIASP(user_id, account_cycle_id, created_at desc)
 DANHGIASP(analysis_id, created_at desc)
 DANHGIASP(category, status, created_at desc)
 analytics_events(event_name, occurred_at desc)
@@ -833,7 +834,7 @@ MVP chỉ được xem là hoàn thành khi:
 - [ ] Premium có roadmap cải thiện CV không phụ thuộc JD.
 - [ ] Free và Premium đều xem lại toàn bộ lịch sử phân tích với cùng logic và pagination; không giới hạn theo gói.
 - [ ] Phân tích lại tạo analysis mới và liên kết analysis trước.
-- [ ] NEWUC-01 lưu vào `DANHGIASP`, gắn với analysis và chỉ cho một đánh giá trên mỗi account cycle.
+- [ ] NEWUC-01 lưu vào `DANHGIASP`, gắn với analysis/cycle và cho phép nhiều đánh giá trên mỗi account cycle.
 - [ ] Thanh toán mô phỏng không làm phát sinh giao dịch thật.
 - [ ] Premium 30/90 ngày dùng mốc +1/+3 tháng lịch; hủy gói chỉ có hiệu lực cuối kỳ; khi về Free tạo cycle mới và cấp lại 3 lượt.
 - [ ] Chuyển/hủy/hết hạn gói không làm mất lịch sử phân tích.

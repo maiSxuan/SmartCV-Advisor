@@ -11,7 +11,15 @@ from pymongo import ASCENDING, DESCENDING
 from app.routes.admin_plans import PlanUpsertRequest
 from app.routes.feedback import FeedbackCreateRequest, FeedbackUpdateRequest
 from app.services.analysis_service import resolve_quota_state
-from app.services.database_bootstrap import DEFAULT_SERVICE_PLANS, MVP_COLLECTIONS, MVP_INDEXES
+from app.services.database_bootstrap import (
+    DEFAULT_SERVICE_PLANS,
+    FEEDBACK_LIFECYCLE_INDEX_NAME,
+    MVP_COLLECTIONS,
+    MVP_INDEXES,
+    drop_legacy_feedback_unique_index,
+    ensure_default_service_plans,
+)
+from app.services import feedback_service
 from app.services.feedback_service import lifecycle_key
 from app.services.plan_service import add_plan_duration, serialize_admin_plan, serialize_public_plan
 from app.services.product_analytics_service import (
@@ -92,14 +100,71 @@ def test_plan_upsert_request_enforces_business_validation_and_cleans_features() 
     assert request.coming_soon == ["AI Assistant", "Matching Score với JD"]
     assert request.analysis_limit == -1
 
+    free_request = PlanUpsertRequest(
+        plan_id="DV_FREE",
+        name="Free",
+        price=0,
+        duration_days=-1,
+        analysis_limit=3,
+        features=["3 lượt phân tích trong một vòng đời Free"],
+        status="active",
+    )
+    assert free_request.duration_days == -1
+    assert free_request.analysis_limit == 3
+
+    for invalid_free_limit in (-1, 4):
+        with pytest.raises(ValidationError):
+            PlanUpsertRequest(
+                plan_id="DV_FREE",
+                name="Free",
+                price=0,
+                duration_days=-1,
+                analysis_limit=invalid_free_limit,
+                features=["3 lượt phân tích"],
+                status="active",
+            )
+
     with pytest.raises(ValidationError):
         PlanUpsertRequest(
             plan_id="DV_FREE",
             name="Free",
             price=0,
-            duration_days=None,
-            analysis_limit=0,
-            features=[],
+            duration_days=30,
+            analysis_limit=3,
+            features=["3 lượt phân tích"],
+            status="active",
+        )
+
+    with pytest.raises(ValidationError):
+        PlanUpsertRequest(
+            plan_id="DV_PREMIUM_30",
+            name="Premium 30 ngày",
+            price=199_000,
+            duration_days=-1,
+            analysis_limit=-1,
+            features=["Không giới hạn phân tích"],
+            status="active",
+        )
+
+    with pytest.raises(ValidationError):
+        PlanUpsertRequest(
+            plan_id="DV_PREMIUM_90",
+            name="Premium 90 ngày",
+            price=389_000,
+            duration_days=30,
+            analysis_limit=-1,
+            features=["Không giới hạn phân tích"],
+            status="active",
+        )
+
+    with pytest.raises(ValidationError):
+        PlanUpsertRequest(
+            plan_id="DV_PREMIUM_60",
+            name="Premium 60 ngày",
+            price=299_000,
+            duration_days=60,
+            analysis_limit=-1,
+            features=["Không giới hạn phân tích"],
             status="active",
         )
 
@@ -128,6 +193,110 @@ def test_lifecycle_key_changes_when_period_start_changes() -> None:
     assert first_key != second_key
 
 
+@pytest.mark.parametrize("plan_id", ["DV_FREE", "DV_PREMIUM_30", "DV_PREMIUM_90"])
+def test_feedback_allows_multiple_submissions_in_the_same_lifecycle(
+    monkeypatch: pytest.MonkeyPatch,
+    plan_id: str,
+) -> None:
+    stored: list[dict[str, object]] = []
+    period_start = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
+    usage_id = f"LD_{plan_id}"
+    lifecycle_id = f"{usage_id}:{period_start.isoformat()}"
+
+    class FeedbackCollection:
+        async def insert_one(self, document: dict[str, object]) -> None:
+            stored.append(dict(document))
+
+    class FakeDb:
+        def __getitem__(self, name: str) -> FeedbackCollection:
+            assert name == "DANHGIASP"
+            return FeedbackCollection()
+
+    async def no_op(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    async def fake_lifecycle(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {
+            "lifecycle_id": lifecycle_id,
+            "usage_id": usage_id,
+            "plan_id": plan_id,
+            "period_start": period_start,
+        }
+
+    monkeypatch.setattr(feedback_service, "ensure_mvp_collections", no_op)
+    monkeypatch.setattr(feedback_service, "ensure_analysis_owned", no_op)
+    monkeypatch.setattr(feedback_service, "resolve_feedback_lifecycle", fake_lifecycle)
+
+    payload = FeedbackCreateRequest(**valid_feedback_payload())
+    first = asyncio.run(feedback_service.create_feedback(FakeDb(), "KH001", payload))
+    second = asyncio.run(feedback_service.create_feedback(FakeDb(), "KH001", payload))
+
+    assert len(stored) == 2
+    assert first["_id"] != second["_id"]
+    assert {item["MaChuKy"] for item in stored} == {lifecycle_id}
+    assert {item["MaLuotDung"] for item in stored} == {usage_id}
+    assert {item["MaGoiDV"] for item in stored} == {plan_id}
+    assert {item["NgayBatDauChuKy"] for item in stored} == {period_start}
+
+
+def test_feedback_eligibility_remains_open_after_previous_submissions(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def no_op(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    async def fake_lifecycle(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {
+            "lifecycle_id": "LD001:2026-08-03T12:00:00+00:00",
+            "usage_id": "LD001",
+            "plan_id": "DV_FREE",
+            "period_start": datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc),
+        }
+
+    monkeypatch.setattr(feedback_service, "ensure_analysis_owned", no_op)
+    monkeypatch.setattr(feedback_service, "resolve_feedback_lifecycle", fake_lifecycle)
+
+    result = asyncio.run(feedback_service.get_feedback_eligibility(object(), "KH001", "KQ001"))
+
+    assert result["can_submit"] is True
+    assert result["reason"] is None
+    assert result["existing_feedback_id"] is None
+    assert result["lifecycle_id"] == "LD001:2026-08-03T12:00:00+00:00"
+
+
+def test_legacy_feedback_unique_index_migration_is_idempotent() -> None:
+    class IndexCursor:
+        def __init__(self, collection: "FakeCollection") -> None:
+            self.collection = collection
+
+        async def to_list(self, length: int | None) -> list[dict[str, object]]:
+            return list(self.collection.indexes)
+
+    class FakeCollection:
+        def __init__(self) -> None:
+            self.indexes: list[dict[str, object]] = [
+                {"name": "_id_", "key": {"_id": 1}},
+                {
+                    "name": "uq_danhgiasp_makh_machuky",
+                    "key": {"MaKH": 1, "MaChuKy": 1},
+                    "unique": True,
+                },
+            ]
+            self.dropped: list[str] = []
+
+        def list_indexes(self) -> IndexCursor:
+            return IndexCursor(self)
+
+        async def drop_index(self, name: str) -> None:
+            self.dropped.append(name)
+            self.indexes = [index for index in self.indexes if index["name"] != name]
+
+    collection = FakeCollection()
+    asyncio.run(drop_legacy_feedback_unique_index(collection))
+    asyncio.run(drop_legacy_feedback_unique_index(collection))
+
+    assert collection.dropped == ["uq_danhgiasp_makh_machuky"]
+    assert [index["name"] for index in collection.indexes] == ["_id_"]
+
+
 def test_plan_serializers_convert_decimal128_to_json_safe_number() -> None:
     document = {
         "_id": "DV_PREMIUM_30",
@@ -151,6 +320,54 @@ def test_plan_serializers_convert_decimal128_to_json_safe_number() -> None:
     assert admin_plan["SapRaMat"] == "AI Assistant; Matching Score với JD"
     assert public_plan["coming_soon"] == ["AI Assistant", "Matching Score với JD"]
 
+    free_document = {
+        "_id": "DV_FREE",
+        "TenGoi": "Free",
+        "Gia": Decimal128("0.00"),
+        "HanSuDung": -1,
+        "SoLuotPhanTich": 3,
+        "QuyenLoi": "3 lượt phân tích trong một vòng đời Free",
+        "TrangThai": "active",
+    }
+    assert serialize_admin_plan(free_document)["HanSuDung"] == -1
+    assert serialize_public_plan(free_document)["duration_days"] == -1
+
+
+def test_default_plan_bootstrap_migrates_canonical_durations_without_replacing_documents() -> None:
+    class FakePlanCollection:
+        def __init__(self) -> None:
+            self.calls: list[tuple[dict[str, object], dict[str, object], bool]] = []
+
+        async def update_one(
+            self,
+            query: dict[str, object],
+            update: dict[str, object],
+            upsert: bool = False,
+        ) -> None:
+            self.calls.append((query, update, upsert))
+
+    class FakeDb:
+        def __init__(self) -> None:
+            self.plans = FakePlanCollection()
+
+        def __getitem__(self, name: str) -> FakePlanCollection:
+            assert name == "GOIDV"
+            return self.plans
+
+    fake_db = FakeDb()
+    asyncio.run(ensure_default_service_plans(fake_db))
+
+    duration_updates = {
+        str(query["_id"]): update["$set"]["HanSuDung"]
+        for query, update, upsert in fake_db.plans.calls
+        if not upsert and "HanSuDung" in query and "$set" in update
+    }
+    assert duration_updates == {
+        "DV_FREE": -1,
+        "DV_PREMIUM_30": 30,
+        "DV_PREMIUM_90": 90,
+    }
+
 
 def test_plan_duration_uses_calendar_months_for_30_and_90_day_passes() -> None:
     start = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
@@ -161,6 +378,10 @@ def test_plan_duration_uses_calendar_months_for_30_and_90_day_passes() -> None:
     month_end = datetime(2026, 1, 31, 8, 30, tzinfo=timezone.utc)
     assert add_plan_duration(month_end, 30) == datetime(2026, 2, 28, 8, 30, tzinfo=timezone.utc)
 
+    for invalid_duration in (-1, 0):
+        with pytest.raises(ValueError):
+            add_plan_duration(start, invalid_duration)
+
 
 def test_premium_quota_uses_admin_plan_configuration() -> None:
     now = datetime(2026, 8, 3, 12, 0, tzinfo=timezone.utc)
@@ -170,16 +391,40 @@ def test_premium_quota_uses_admin_plan_configuration() -> None:
             self.documents = documents
 
         async def find_one(self, query: dict[str, object], *args: object, **kwargs: object) -> dict[str, object] | None:
+            matches: list[dict[str, object]] = []
             for document in self.documents:
-                if all(document.get(key) == value for key, value in query.items()):
-                    return document
-            return None
+                is_match = True
+                for key, expected in query.items():
+                    if isinstance(expected, dict) and "$in" in expected:
+                        if document.get(key) not in expected["$in"]:
+                            is_match = False
+                            break
+                    elif document.get(key) != expected:
+                        is_match = False
+                        break
+                if is_match:
+                    matches.append(document)
+
+            sort = kwargs.get("sort")
+            if sort and matches:
+                field, direction = sort[0]
+                matches.sort(key=lambda item: item.get(field), reverse=direction < 0)
+            return matches[0] if matches else None
 
     class FakeDb:
         def __init__(self) -> None:
             self.collections = {
                 "KHACHHANG": FakeCollection([{"_id": "KH001", "LoaiKH": "premium"}]),
                 "LUOTDUNG": FakeCollection([
+                    {
+                        "_id": "LD_FREE",
+                        "MaKH": "KH001",
+                        "MaGoiDV": "DV_FREE",
+                        "NgayBatDau": now - timedelta(days=100),
+                        # This legacy cosmetic expiry is intentionally later
+                        # than Premium and must not win lifecycle selection.
+                        "HanSuDung": now + timedelta(days=31),
+                    },
                     {
                         "_id": "LD001",
                         "MaKH": "KH001",
@@ -404,9 +649,14 @@ def test_step4_bootstrap_indexes_use_persisted_document_field_names() -> None:
     assert {"DANHGIASP", "SUKIEN_SANPHAM", "GOIDV"}.issubset(set(MVP_COLLECTIONS))
 
     feedback_indexes = {options["name"]: (keys, options) for keys, options in MVP_INDEXES["DANHGIASP"]}
-    unique_keys, unique_options = feedback_indexes["uq_danhgiasp_makh_machuky"]
-    assert unique_keys == [("MaKH", ASCENDING), ("MaChuKy", ASCENDING)]
-    assert unique_options["unique"] is True
+    lifecycle_keys, lifecycle_options = feedback_indexes[FEEDBACK_LIFECYCLE_INDEX_NAME]
+    assert lifecycle_keys == [
+        ("MaKH", ASCENDING),
+        ("MaChuKy", ASCENDING),
+        ("NgayTao", DESCENDING),
+    ]
+    assert lifecycle_options.get("unique") is not True
+    assert "uq_danhgiasp_makh_machuky" not in feedback_indexes
 
     event_indexes = {options["name"]: keys for keys, options in MVP_INDEXES["SUKIEN_SANPHAM"]}
     assert event_indexes["idx_sukien_ten_thoidiem"] == [
@@ -453,3 +703,6 @@ def test_step4_bootstrap_indexes_use_persisted_document_field_names() -> None:
     assert all(plan["TrangThai"] == "active" for plan in defaults.values())
     assert all("SapRaMat" in plan for plan in defaults.values())
     assert defaults["DV_FREE"]["SoLuotPhanTich"] == 3
+    assert defaults["DV_FREE"]["HanSuDung"] == -1
+    assert defaults["DV_PREMIUM_30"]["HanSuDung"] == 30
+    assert defaults["DV_PREMIUM_90"]["HanSuDung"] == 90

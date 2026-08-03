@@ -44,7 +44,7 @@ export interface FeedbackPayload {
 export interface FeedbackEligibility {
   can_submit: boolean;
   reason: string | null;
-  existing_feedback_id: string | null;
+  existing_feedback_id?: string | null;
 }
 
 export interface AdminFeedbackItem {
@@ -594,7 +594,7 @@ export const apiService = {
     plan_id: string;
     name: string;
     price: number;
-    duration_days: number | null;
+    duration_days: number;
     analysis_limit: number;
     features: string[];
     coming_soon: string[];

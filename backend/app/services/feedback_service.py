@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import HTTPException, status
-from pymongo.errors import DuplicateKeyError, PyMongoError
+from pymongo.errors import PyMongoError
 
 from app.services.analysis_service import resolve_quota_state
 from app.services.database_bootstrap import ensure_mvp_collections
@@ -89,24 +89,21 @@ async def get_feedback_eligibility(db: Any, user_id: str, analysis_id: str | Non
     if analysis_id:
         await ensure_analysis_owned(db, user_id, analysis_id)
     lifecycle = await resolve_feedback_lifecycle(db, user_id)
-    existing = await db["DANHGIASP"].find_one(
-        {"MaKH": user_id, "MaChuKy": lifecycle["lifecycle_id"]},
-        {"_id": 1},
-    )
     return {
-        "can_submit": existing is None,
-        "reason": None if existing is None else "Bạn đã gửi phản hồi trong chu kỳ tài khoản này.",
-        "existing_feedback_id": str(existing["_id"]) if existing else None,
+        "can_submit": True,
+        "reason": None,
+        "existing_feedback_id": None,
         "lifecycle_id": lifecycle["lifecycle_id"],
         "plan_id": lifecycle["plan_id"],
     }
 
 
 async def create_feedback(db: Any, user_id: str, payload: Any) -> dict[str, Any]:
-    # Enforce the unique lifecycle rule even if the app first started while
-    # MongoDB was temporarily unavailable.
-    await ensure_mvp_collections(db)
     await ensure_analysis_owned(db, user_id, payload.analysis_id)
+    # Ensure deployments that still have the former unique lifecycle index
+    # migrate before accepting a new feedback document. Ownership is checked
+    # first so invalid analysis IDs cannot trigger schema/index work.
+    await ensure_mvp_collections(db)
     lifecycle = await resolve_feedback_lifecycle(db, user_id)
     now = datetime.now(timezone.utc)
     document = {
@@ -134,14 +131,6 @@ async def create_feedback(db: Any, user_id: str, payload: Any) -> dict[str, Any]
     }
     try:
         await db["DANHGIASP"].insert_one(document)
-    except DuplicateKeyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "FEEDBACK_LIMIT_REACHED",
-                "message": "Mỗi chu kỳ tài khoản chỉ được gửi một phản hồi duy nhất.",
-            },
-        ) from exc
     except PyMongoError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

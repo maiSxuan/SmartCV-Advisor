@@ -1,6 +1,7 @@
 import {
   FREE_FEATURES,
   FREE_LIMITATIONS,
+  formatPlanDuration,
   getPremiumComingSoon,
   PREMIUM_FEATURES,
   PREMIUM_PLANS,
@@ -33,7 +34,7 @@ export function FreePricingCard({ current = false, actionLabel, onAction, plan }
 }) {
   const features = plan?.features?.length ? plan.features : FREE_FEATURES;
   const limitations = plan?.limited_features?.length ? plan.limited_features : FREE_LIMITATIONS;
-  const durationLabel = plan?.duration_days ? `${plan.duration_days} ngày` : 'Mãi mãi miễn phí';
+  const durationLabel = formatPlanDuration(plan?.duration_days, 'Không giới hạn thời hạn', true);
   return (
     <div className="relative flex min-h-[610px] flex-col rounded-2xl border-2 border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/40">
       {current && <div className="absolute right-5 top-5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">Gói hiện tại</div>}
@@ -79,7 +80,7 @@ export function PremiumPricingCard({ cycle, recommended = false, actionLabel, on
   const features = servicePlan?.features?.length ? servicePlan.features : PREMIUM_FEATURES;
   const comingSoon = servicePlan ? servicePlan.coming_soon : getPremiumComingSoon(cycle);
   const price = Number(servicePlan?.price ?? plan.price);
-  const durationLabel = servicePlan?.duration_days ? `${servicePlan.duration_days} ngày` : plan.durationLabel;
+  const durationLabel = formatPlanDuration(servicePlan?.duration_days, plan.durationLabel);
   return (
     <div className="relative flex min-h-[610px] flex-col rounded-2xl border-2 border-blue-400 bg-gradient-to-br from-blue-600 to-blue-700 p-7 shadow-xl shadow-blue-600/20">
       {recommended && <div className="absolute right-5 top-5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">Thời hạn dài hơn</div>}

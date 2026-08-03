@@ -20,7 +20,7 @@ class PlanUpsertRequest(BaseModel):
     plan_id: str = Field(..., pattern=r"^[A-Z0-9_-]{2,80}$")
     name: str = Field(..., min_length=1, max_length=160)
     price: float = Field(..., ge=0, le=1_000_000_000)
-    duration_days: int | None = Field(default=None, ge=1, le=3650)
+    duration_days: int = Field(..., ge=-1, le=3650)
     analysis_limit: int = Field(..., ge=-1, le=1_000_000)
     features: list[str] = Field(..., min_length=1, max_length=100)
     coming_soon: list[str] = Field(default_factory=list, max_length=100)
@@ -38,6 +38,27 @@ class PlanUpsertRequest(BaseModel):
     def validate_plan_rules(self) -> "PlanUpsertRequest":
         if self.analysis_limit == 0 or self.analysis_limit < -1:
             raise ValueError("Số lượt phân tích phải là -1 (không giới hạn) hoặc số dương.")
+
+        if self.plan_id == "DV_FREE":
+            if self.analysis_limit != 3:
+                raise ValueError("Gói DV_FREE phải có đúng 3 lượt phân tích cho mỗi vòng đời Free.")
+            if self.duration_days != -1:
+                raise ValueError("Gói DV_FREE phải có thời hạn -1 (không giới hạn vòng đời Free).")
+            return self
+
+        if self.duration_days == -1:
+            raise ValueError("Chỉ gói DV_FREE được phép có thời hạn -1.")
+        if self.duration_days not in {30, 90}:
+            raise ValueError("Gói Premium chỉ hỗ trợ thời hạn 30 hoặc 90 ngày.")
+
+        expected_premium_duration = {
+            "DV_PREMIUM_30": 30,
+            "DV_PREMIUM_90": 90,
+        }.get(self.plan_id)
+        if expected_premium_duration is not None and self.duration_days != expected_premium_duration:
+            raise ValueError(
+                f"Gói {self.plan_id} phải có thời hạn {expected_premium_duration} ngày."
+            )
         return self
 
 

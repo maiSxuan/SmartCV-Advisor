@@ -1,5 +1,18 @@
 export type PremiumCycle = '30' | '90';
 
+export function formatPlanDuration(
+  durationDays: number | null | undefined,
+  fallbackLabel: string,
+  supportsUnlimited = false,
+): string {
+  if (durationDays === -1) {
+    return supportsUnlimited ? 'Không giới hạn thời hạn' : fallbackLabel;
+  }
+  return typeof durationDays === 'number' && durationDays > 0
+    ? `${durationDays} ngày`
+    : fallbackLabel;
+}
+
 export const FREE_FEATURES = [
   '3 lượt phân tích CV cho một chu kỳ tài khoản',
   'Điểm tổng quan và các tiêu chí đánh giá',

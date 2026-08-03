@@ -41,6 +41,20 @@ const feedbackQuestions: Array<{ key: FeedbackBooleanKey; label: string }> = [
   { key: 'willing_to_recommend', label: 'Bạn có sẵn sàng giới thiệu sản phẩm không?' },
 ];
 
+function createInitialFeedbackForm() {
+  return {
+    feedback_type: 'gop_y_khac' as FeedbackType,
+    rating: 5,
+    easy_to_understand: true,
+    recommendation_specific: true,
+    useful: true,
+    inaccurate: false,
+    want_reanalyze: false,
+    willing_to_recommend: true,
+    comment: '',
+  };
+}
+
 function ScoreDonut({ score }: { score: number }) {
   return (
     <div
@@ -918,24 +932,18 @@ export default function AnalysisResultPage() {
   const [feedbackMessageTone, setFeedbackMessageTone] = useState<'success' | 'error'>('success');
   const [feedbackEligibility, setFeedbackEligibility] = useState<FeedbackEligibility | null>(null);
   const [feedbackEligibilityLoading, setFeedbackEligibilityLoading] = useState(true);
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  const [feedbackForm, setFeedbackForm] = useState({
-    feedback_type: 'gop_y_khac' as FeedbackType,
-    rating: 5,
-    easy_to_understand: true,
-    recommendation_specific: true,
-    useful: true,
-    inaccurate: false,
-    want_reanalyze: false,
-    willing_to_recommend: true,
-    comment: '',
-  });
+  const [hasSubmittedFeedback, setHasSubmittedFeedback] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState(createInitialFeedbackForm);
 
   useEffect(() => {
     const fetchResult = async () => {
       if (!id) return;
       setLoading(true);
       setErrorMessage('');
+      setFeedbackMessage('');
+      setFeedbackEligibility(null);
+      setHasSubmittedFeedback(false);
+      setFeedbackForm(createInitialFeedbackForm());
       try {
         const response = await apiService.getAnalysisResult(id);
         setResult(response.data);
@@ -1033,11 +1041,11 @@ export default function AnalysisResultPage() {
   };
 
   const handleFeedbackSubmit = async () => {
-    if (!id || !feedbackEligibility?.can_submit || feedbackSubmitted) return;
+    if (!id || !feedbackEligibility?.can_submit) return;
     setFeedbackSubmitting(true);
     setFeedbackMessage('');
     try {
-      const response = await apiService.submitFeedback({
+      await apiService.submitFeedback({
         analysis_id: id,
         feedback_type: feedbackForm.feedback_type,
         rating: feedbackForm.rating,
@@ -1049,14 +1057,10 @@ export default function AnalysisResultPage() {
         willing_to_recommend: feedbackForm.willing_to_recommend,
         comment: feedbackForm.comment,
       });
-      setFeedbackMessage('Cảm ơn bạn đã gửi phản hồi! Phản hồi được ghi nhận cho chu kỳ tài khoản hiện tại.');
+      setFeedbackMessage('Cảm ơn bạn đã gửi phản hồi! Bạn có thể gửi thêm phản hồi bất cứ lúc nào trong chu kỳ hiện tại.');
       setFeedbackMessageTone('success');
-      setFeedbackSubmitted(true);
-      setFeedbackEligibility({
-        can_submit: false,
-        reason: 'Bạn đã gửi phản hồi trong chu kỳ tài khoản hiện tại.',
-        existing_feedback_id: response.data._id,
-      });
+      setHasSubmittedFeedback(true);
+      setFeedbackForm(createInitialFeedbackForm());
       setFeedbackOpen(false);
     } catch (error) {
       setFeedbackMessage(getApiErrorMessage(error));
@@ -1071,8 +1075,14 @@ export default function AnalysisResultPage() {
     void apiService.trackAnalyticsEvent('analysis_restarted', { analysis_id: id }).catch(() => undefined);
   };
 
-  const canSubmitFeedback = feedbackEligibility?.can_submit === true && !feedbackSubmitted;
-  const feedbackAlreadySubmitted = feedbackSubmitted || Boolean(feedbackEligibility?.existing_feedback_id);
+  const handleFeedbackToggle = () => {
+    if (!feedbackOpen && feedbackMessageTone === 'success') {
+      setFeedbackMessage('');
+    }
+    setFeedbackOpen((current) => !current);
+  };
+
+  const canSubmitFeedback = feedbackEligibility?.can_submit === true;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-8">
@@ -1127,23 +1137,25 @@ export default function AnalysisResultPage() {
               <h2 className="text-lg font-semibold text-slate-900">Phản hồi sau phân tích</h2>
               <p className="text-sm text-slate-500">
                 {canSubmitFeedback
-                  ? 'Mời bạn dành một phút đánh giá kết quả vừa nhận được.'
-                  : 'Mỗi chu kỳ tài khoản được gửi một phản hồi.'}
+                  ? hasSubmittedFeedback
+                    ? 'Phản hồi của bạn đã được ghi nhận. Bạn có thể gửi thêm phản hồi nếu cần.'
+                    : 'Mời bạn dành một phút đánh giá kết quả vừa nhận được.'
+                  : 'Hiện tại bạn chưa thể gửi phản hồi cho kết quả này.'}
               </p>
             </div>
             <button
               type="button"
               disabled={feedbackEligibilityLoading || !canSubmitFeedback}
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              onClick={() => setFeedbackOpen((prev) => !prev)}
+              onClick={handleFeedbackToggle}
             >
               {feedbackEligibilityLoading
                 ? 'Đang kiểm tra...'
                 : !canSubmitFeedback
-                  ? feedbackAlreadySubmitted ? 'Đã gửi phản hồi' : 'Không thể gửi'
+                  ? 'Không thể gửi'
                   : feedbackOpen
                     ? 'Đóng biểu mẫu'
-                    : 'Gửi phản hồi'}
+                    : hasSubmittedFeedback ? 'Gửi thêm phản hồi' : 'Gửi phản hồi'}
             </button>
           </div>
           {feedbackMessage && (

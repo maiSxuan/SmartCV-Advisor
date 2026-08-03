@@ -15,6 +15,8 @@ from pymongo.errors import PyMongoError
 
 def add_plan_duration(start: datetime, duration_days: int) -> datetime:
     """Treat the product's 30/90-day passes as 1/3 calendar months."""
+    if duration_days <= 0:
+        raise ValueError("A paid plan duration must be a positive number of days.")
     if duration_days not in {30, 90}:
         from datetime import timedelta
 

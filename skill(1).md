@@ -573,7 +573,7 @@ Mỗi plan có:
 
 - code/name;
 - price mock;
-- `duration_months`: Free = 0, Premium 30 = 1, Premium 90 = 3;
+- `duration_days`: Free = -1 (không giới hạn thời hạn), Premium 30 = 30, Premium 90 = 90; hai gói Premium được tính theo 1/3 tháng lịch;
 - analysis quota theo cycle;
 - `history_unlimited = true` cho tất cả gói;
 - danh sách quyền lợi/roadmap/suggestion entitlement;
@@ -583,7 +583,7 @@ Mỗi plan có:
 ### NEWUC-02 — Admin quản lý cấu hình gói
 
 - Form/API tối thiểu: tên gói, giá, thời hạn theo tháng lịch, số lượt phân tích, quyền lợi, trạng thái hoạt động, ngày/người cập nhật.
-- Validate giá/quota/thời hạn không âm và code gói không trùng.
+- Validate giá/quota và code gói không trùng; riêng `duration_days = -1` chỉ hợp lệ cho Free và biểu thị không giới hạn thời hạn.
 - `history_unlimited` không cho Admin tắt trong phạm vi MVP hiện tại.
 - Config mới không hồi tố cycle đã bắt đầu; cycle lưu plan snapshot.
 - Thay đổi config phải có audit log.
@@ -663,11 +663,11 @@ Dữ liệu phải lọc theo khoảng thời gian và dùng aggregation pipelin
 
 ## 18. Skill 13 — NEWUC-01 và NEWUC-04: Feedback, đánh giá sản phẩm và hỗ trợ vận hành
 
-### Quy tắc một đánh giá cho mỗi vòng đời
+### Quy tắc nhiều đánh giá trong mỗi vòng đời
 
 - Collection MongoDB bắt buộc: `DANHGIASP`.
-- Mỗi `(user_id, account_cycle_id)` chỉ có một bản ghi; enforce bằng unique index ở database và kiểm tra ở service.
-- Người dùng được đánh giá lại khi bước sang cycle mới: Free mới, Premium 30 mới hoặc Premium 90 mới.
+- Mỗi `(user_id, account_cycle_id)` được có nhiều bản ghi; không tạo unique index trên cặp trường này.
+- Người dùng được gửi nhiều đánh giá trong cùng vòng đời Free, Premium 30 ngày hoặc Premium 90 ngày.
 - Feedback phải gắn `analysis_id` để Admin biết ngữ cảnh kết quả liên quan.
 
 ### Micro-survey tối thiểu

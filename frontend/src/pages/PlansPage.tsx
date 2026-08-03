@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiService, getApiErrorMessage } from '../services/api';
 import type { ServicePlan } from '../services/api';
-import { getPremiumComingSoon, PREMIUM_FEATURES, PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
+import { formatPlanDuration, getPremiumComingSoon, PREMIUM_FEATURES, PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
 import { FreePricingCard, PremiumPricingCard } from '../components/PricingCards';
 
 // ─────────────────────── Types ───────────────────────
@@ -87,7 +87,9 @@ function PaymentModal({
     ? {
         label: action === 'renew' ? `Gia hạn ${configuredPlan.name}` : configuredPlan.name,
         price: Number(configuredPlan.price),
-        days: configuredPlan.duration_days ?? fallbackInfo.days,
+        days: typeof configuredPlan.duration_days === 'number' && configuredPlan.duration_days > 0
+          ? configuredPlan.duration_days
+          : fallbackInfo.days,
       }
     : fallbackInfo;
   const priceStr = info.price.toLocaleString('vi-VN') + 'đ';
@@ -318,7 +320,7 @@ function CurrentPremiumCard({ cycle, servicePlan, onRenew, onCancel }: { cycle: 
   const features = servicePlan?.features?.length ? servicePlan.features : PREMIUM_FEATURES;
   const comingSoon = servicePlan ? servicePlan.coming_soon : getPremiumComingSoon(cycle);
   const price = Number(servicePlan?.price ?? plan.price);
-  const durationLabel = servicePlan?.duration_days ? `${servicePlan.duration_days} ngày` : plan.durationLabel;
+  const durationLabel = formatPlanDuration(servicePlan?.duration_days, plan.durationLabel);
   return (
     <div className="relative flex min-h-[610px] flex-col rounded-2xl border-2 border-slate-200 bg-white p-7 shadow-sm shadow-slate-200/40">
       <div className="absolute right-5 top-5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">Gói hiện tại</div>
@@ -457,9 +459,10 @@ export default function PlansPage() {
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                {planForCycle(cycle)?.duration_days
-                  ? `${planForCycle(cycle)?.duration_days} ngày`
-                  : PREMIUM_PLANS[cycle].durationLabel}
+                {formatPlanDuration(
+                  planForCycle(cycle)?.duration_days,
+                  PREMIUM_PLANS[cycle].durationLabel,
+                )}
               </button>
             ))}
           </div>

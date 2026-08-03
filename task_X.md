@@ -3,6 +3,7 @@ BƯỚC 2: CHỈNH LẠI LOGIC:
 
 BƯỚC 3: CHỈNH LẠI vòng đời của tài khoản (vòng đời giống cái gói của chatgpt)
 ví dụ khi người dùng đang là gói premium 30 ngày (ngày đăng kí là 3/8) thì phải đến ngày 3/9 mới hết hạn 30 ngày, tương tự gói 90 ngày cũng vậy. còn nếu đang là gói premium 30 ngày mà họ lại hủy gói, thì phải đúng 30 ngày sau kể từ ngày đăng kí thì mới về trạng thái gói free. Khi về gói free thì lịch sử vẫn đầy đủ không bị giới hạn, và phải cấp lại 3 lượt phân tích khi họ bước vào chu kì vòng đời tài khoản free (gói free chỉ có 3 lượt phân tích cho 1 vòng đời tài khoản)
+- Quy ước cấu hình thời hạn: `DV_FREE.HanSuDung = -1` biểu thị không giới hạn thời hạn sử dụng; Premium 30/90 vẫn dùng lần lượt 30/90 để tính 1/3 tháng lịch.
 
 BƯỚC 4: THỰC HIỆN THÊM CÁC USECASE SAU ĐỂ ĐẢM BẢO ĐỦ USECASE CHO MVP SẢN PHẨM
 NEWUC-01: Gửi phản hồi (hoặc đánh giá sản phẩm)
@@ -16,7 +17,7 @@ NEWUC-01: Gửi phản hồi (hoặc đánh giá sản phẩm)
   Người dùng có muốn phân tích lại không?
   Người dùng có sẵn sàng giới thiệu sản phẩm không?
   Bình luận tùy chọn.
-- Lưu ý tôi muốn: mỗi vòng đời tài khoản chỉ có lần đánh giá duy nhất. ví dụ khi khách hàng ở tài khoản free thì cho 1 lần đánh giá suốt vòng đời tài khoản free, tương tự cho premium 30 ngày, premium 90 ngày. Hiện tại database ở mongodb đang thiếu collection DANHGIASP cần bổ sung và thêm các thuộc tính phù hợp với nội dung tối thiểu
+- Lưu ý cập nhật: trong mỗi vòng đời Free, Premium 30 ngày hoặc Premium 90 ngày, người dùng được gửi nhiều đánh giá sản phẩm. Mỗi đánh giá vẫn phải gắn với vòng đời và kết quả phân tích liên quan. Hiện tại database ở mongodb đang thiếu collection DANHGIASP cần bổ sung và thêm các thuộc tính phù hợp với nội dung tối thiểu
 
 NEWUC-02: Quản lý cấu hình gói
 Admin cần quản lý tối thiểu:

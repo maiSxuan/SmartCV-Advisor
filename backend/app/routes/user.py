@@ -237,8 +237,11 @@ async def renew_plan(
     user_id = user["user_id"]
     now = datetime.now(timezone.utc)
 
-    usage_doc = await db["LUOTDUNG"].find_one({"MaKH": user_id}, sort=[("HanSuDung", -1)])
-    if not usage_doc or usage_doc.get("MaGoiDV") not in PREMIUM_PLAN_IDS:
+    usage_doc = await db["LUOTDUNG"].find_one(
+        {"MaKH": user_id, "MaGoiDV": {"$in": sorted(PREMIUM_PLAN_IDS)}},
+        sort=[("HanSuDung", -1)],
+    )
+    if not usage_doc:
         raise HTTPException(status_code=400, detail={"code": "NOT_PREMIUM", "message": "Chỉ gói Premium mới có thể gia hạn."})
 
     plan_id = usage_doc["MaGoiDV"]

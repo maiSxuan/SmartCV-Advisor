@@ -9,7 +9,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ASCENDING, DESCENDING
 
 from app.services.auth_service import hash_password
-from app.services.database_bootstrap import DEFAULT_PREMIUM_COMING_SOON, MVP_INDEXES
+from app.services.database_bootstrap import (
+    DEFAULT_PREMIUM_COMING_SOON,
+    MVP_INDEXES,
+    drop_legacy_feedback_unique_index,
+)
 from app.services.role_dataset import build_role_seed_documents
 
 
@@ -159,7 +163,7 @@ async def main():
                         "TenGoi": "Free",
                         "Gia": Decimal128("0.00"),
                         "SoLuotPhanTich": 3,
-                        "HanSuDung": 30,
+                        "HanSuDung": -1,
                         "QuyenLoi": (
                             "3 lượt phân tích; xem điểm tổng quan; "
                             "xem lỗi phổ biến và gợi ý cải thiện tổng quan không kèm roadmap."
@@ -646,6 +650,9 @@ async def main():
 
             collection = db[collection_name]
 
+            if collection_name == "DANHGIASP":
+                await drop_legacy_feedback_unique_index(collection)
+
             if collection_name == "DIEMDANHGIA":
                 existing_indexes = await collection.list_indexes().to_list(length=50)
                 if any(index.get("name") == "uq_diemdanhgia_makynang" for index in existing_indexes):
@@ -710,6 +717,10 @@ async def main():
                     await collection.update_one(
                         {"_id": document_id, "SapRaMat": {"$exists": False}},
                         {"$set": {"SapRaMat": payload.get("SapRaMat", "")}},
+                    )
+                    await collection.update_one(
+                        {"_id": document_id, "HanSuDung": {"$ne": payload["HanSuDung"]}},
+                        {"$set": {"HanSuDung": payload["HanSuDung"]}},
                     )
 
                 if result.upserted_id is not None:

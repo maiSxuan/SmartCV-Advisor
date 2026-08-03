@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FreePricingCard, PremiumPricingCard } from '../components/PricingCards';
-import { PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
+import { formatPlanDuration, PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
 import { apiService } from '../services/api';
 import type { ServicePlan } from '../services/api';
 
@@ -316,9 +316,10 @@ export default function LandingPage() {
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  {premiumPlanFor(cycle)?.duration_days
-                    ? `${premiumPlanFor(cycle)?.duration_days} ngày`
-                    : PREMIUM_PLANS[cycle].durationLabel}
+                  {formatPlanDuration(
+                    premiumPlanFor(cycle)?.duration_days,
+                    PREMIUM_PLANS[cycle].durationLabel,
+                  )}
                 </button>
               ))}
             </div>
