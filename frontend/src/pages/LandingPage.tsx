@@ -1,5 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FreePricingCard, PremiumPricingCard } from '../components/PricingCards';
+import { formatPlanDuration, PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
+import { apiService } from '../services/api';
+import type { ServicePlan } from '../services/api';
 
 const freeBenefits = [
   '3 lượt phân tích CV cho một chu kỳ tài khoản',
@@ -34,6 +38,37 @@ const premiumComingSoon = [
 export default function LandingPage() {
   const navigate = useNavigate();
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [selectedCycle, setSelectedCycle] = useState<PremiumCycle>('30');
+  const [servicePlans, setServicePlans] = useState<ServicePlan[]>([]);
+  const [servicePlansLoaded, setServicePlansLoaded] = useState(false);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    void apiService.trackPublicAnalyticsEvent('landing_page_view').catch(() => undefined);
+    void apiService.getPlans()
+      .then((response) => {
+        setServicePlans(response.data);
+        setServicePlansLoaded(true);
+        const availableCycles = (['30', '90'] as PremiumCycle[]).filter((cycle) =>
+          response.data.some((plan) => plan.plan_id === `DV_PREMIUM_${cycle}`));
+        setSelectedCycle((current) => availableCycles.includes(current) ? current : (availableCycles[0] ?? current));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const freePlan = servicePlans.find((plan) => plan.plan_id === 'DV_FREE');
+  const premiumPlanFor = (cycle: PremiumCycle) => servicePlans.find((plan) => plan.plan_id === `DV_PREMIUM_${cycle}`);
+  const premiumCycles = servicePlansLoaded
+    ? (['30', '90'] as PremiumCycle[]).filter((cycle) => Boolean(premiumPlanFor(cycle)))
+    : (['30', '90'] as PremiumCycle[]);
+  const selectedPremiumPlan = premiumPlanFor(selectedCycle);
+
+  const handleCtaClick = (messageVariant: string) => {
+    void apiService.trackPublicAnalyticsEvent('cta_clicked', { message_variant: messageVariant }).catch(() => undefined);
+    navigate('/register');
+  };
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -54,7 +89,7 @@ export default function LandingPage() {
           <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
             <a href="#how-it-works" className="hover:text-blue-600 transition-colors">Cách hoạt động</a>
             <a href="#plans" className="hover:text-blue-600 transition-colors">Gói dịch vụ</a>
-            
+
             {/* Thông tin chung Dropdown */}
             <div
               className="relative"
@@ -143,7 +178,7 @@ export default function LandingPage() {
               <button
                 className="inline-flex h-13 items-center rounded-2xl bg-blue-600 px-8 text-base font-bold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/30 active:scale-95"
                 type="button"
-                onClick={() => navigate('/register')}
+                onClick={() => handleCtaClick('hero_free_analysis')}
               >
                 Phân tích CV miễn phí
               </button>
@@ -370,6 +405,8 @@ export default function LandingPage() {
                 Đăng ký miễn phí
               </button>
             </div>
+            )}
+          </div>
 
             {/* Premium */}
             <div className="relative flex flex-col rounded-3xl border-2 border-blue-500 bg-white p-8 shadow-xl shadow-blue-100">
@@ -422,6 +459,9 @@ export default function LandingPage() {
               </button>
             </div>
           </div>
+          {servicePlansLoaded && !freePlan && premiumCycles.length === 0 && (
+            <p className="text-center text-sm text-slate-500">Hiện chưa có gói dịch vụ đang hoạt động.</p>
+          )}
         </div>
       </section>
 
@@ -436,7 +476,7 @@ export default function LandingPage() {
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs sm:gap-5 sm:text-sm">
             <button
               type="button"
-              onClick={() => navigate('/register')}
+              onClick={() => handleCtaClick('footer_free_analysis')}
               className="hover:text-blue-600 transition-colors"
             >
               Phân tích CV miễn phí

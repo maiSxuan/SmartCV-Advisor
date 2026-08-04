@@ -14,6 +14,46 @@ const tabs = [
   { key: 'Certifications', label: 'Chứng chỉ' },
 ];
 
+const feedbackTypeOptions: Array<{ value: FeedbackType; label: string }> = [
+  { value: 'loi_ky_thuat', label: 'Lỗi kỹ thuật' },
+  { value: 'ket_qua_kho_hieu', label: 'Kết quả khó hiểu' },
+  { value: 'goi_y_chua_cu_the', label: 'Gợi ý chưa cụ thể' },
+  { value: 'nhan_xet_chua_chinh_xac', label: 'Nhận xét chưa chính xác' },
+  { value: 'quyen_rieng_tu', label: 'Quyền riêng tư' },
+  { value: 'gop_y_khac', label: 'Góp ý khác' },
+];
+
+type FeedbackBooleanKey =
+  | 'easy_to_understand'
+  | 'recommendation_specific'
+  | 'useful'
+  | 'inaccurate'
+  | 'want_reanalyze'
+  | 'willing_to_recommend';
+
+const feedbackQuestions: Array<{ key: FeedbackBooleanKey; label: string }> = [
+  { key: 'easy_to_understand', label: 'Kết quả có dễ hiểu không?' },
+  { key: 'recommendation_specific', label: 'Gợi ý có đủ cụ thể không?' },
+  { key: 'useful', label: 'Kết quả có hữu ích không?' },
+  { key: 'inaccurate', label: 'Có lỗi hoặc gợi ý nào chưa chính xác?' },
+  { key: 'want_reanalyze', label: 'Bạn có muốn phân tích lại không?' },
+  { key: 'willing_to_recommend', label: 'Bạn có sẵn sàng giới thiệu sản phẩm không?' },
+];
+
+function createInitialFeedbackForm() {
+  return {
+    feedback_type: 'gop_y_khac' as FeedbackType,
+    rating: 5,
+    easy_to_understand: true,
+    recommendation_specific: true,
+    useful: true,
+    inaccurate: false,
+    want_reanalyze: false,
+    willing_to_recommend: true,
+    comment: '',
+  };
+}
+
 function ScoreDonut({ score }: { score: number }) {
   return (
     <div
@@ -457,8 +497,215 @@ function SectionScoreBar({
           {item.score}/{item.max_score}
         </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-        <div className={`h-full rounded-full ${scoreBarColor(percentage)}`} style={{ width: `${percentage}%` }} />
+    </div>
+  );
+}
+
+function RoadmapTree({ phases, roleName }: { phases: RoadmapPhase[]; roleName?: string | null }) {
+  const [openPhases, setOpenPhases] = useState<Set<number>>(() => new Set(phases.map((_, index) => index)));
+  const [openSkills, setOpenSkills] = useState<Set<string>>(() => new Set());
+  const visiblePhases = useMemo(() => dedupeRoadmapPhases(phases), [phases]);
+
+  const togglePhase = (index: number) => {
+    setOpenPhases((current) => {
+      const next = new Set(current);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const toggleSkill = (key: string) => {
+    setOpenSkills((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div
+      className="mt-4 bg-[#f5f9ff] px-4 py-8 sm:px-7 lg:px-10"
+      style={{
+        backgroundImage: 'radial-gradient(circle, rgba(96, 165, 250, 0.38) 1px, transparent 1px)',
+        backgroundSize: '18px 18px',
+      }}
+    >
+      <div className="mx-auto max-w-5xl">
+        <div className="border-l-4 border-blue-600 pl-4">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-600">Learning Path</p>
+          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">Roadmap Recommendation</h2>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-slate-500">
+            Lộ trình học tập được cá nhân hóa cho vai trò {roleName ?? 'mục tiêu'} — theo từng giai đoạn, từ nền tảng
+            đến triển khai thực tế.
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-5 text-sm font-semibold text-slate-500">
+          {[0, 2, 3].map((index) => {
+            const badge = phaseBadge(index);
+            return (
+              <span key={badge.label} className="inline-flex items-center gap-2">
+                <span className={`h-3 w-3 rounded-full ${badge.dot}`} />
+                {badge.label}
+              </span>
+            );
+          })}
+        </div>
+
+        <ol className="relative mt-10 space-y-10">
+          <span aria-hidden="true" className="absolute bottom-8 left-6 top-5 w-0.5 bg-blue-200 sm:left-9" />
+          {visiblePhases.map((phase, index) => {
+            const { phaseLabel, title } = splitPhaseTitle(phase.phase);
+            const badge = phaseBadge(index);
+            const groups = phaseSkillGroups(phase, index);
+            const isOpen = openPhases.has(index);
+
+            return (
+              <li key={phase.phase} className="relative pl-16 sm:pl-24">
+                <span className="absolute left-6 top-1 grid h-10 w-10 -translate-x-1/2 place-items-center rounded-full border-4 border-[#f5f9ff] bg-blue-700 text-sm font-bold text-white shadow-md shadow-blue-200 sm:left-9">
+                  {index + 1}
+                </span>
+
+                <article>
+                  <button
+                    type="button"
+                    className="w-full rounded-xl border-2 border-[#d79b00] bg-[#ffe34d] px-5 py-4 text-left shadow-[0_4px_0_#d79b00] transition hover:bg-[#ffe866] focus:outline-none focus:ring-4 focus:ring-yellow-200"
+                    aria-expanded={isOpen}
+                    aria-controls={`roadmap-phase-${index}`}
+                    onClick={() => togglePhase(index)}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-yellow-800">{phaseLabel}</p>
+                        <h3 className="mt-2 text-xl font-extrabold leading-6 text-slate-950">{title}</h3>
+                        <p className="mt-1 text-sm leading-6 text-slate-700">{phase.goal}</p>
+                      </div>
+                      <span
+                        aria-hidden="true"
+                        className={[
+                          'grid h-9 w-9 shrink-0 place-items-center rounded-full text-2xl font-bold leading-none text-yellow-800 transition-transform duration-300',
+                          isOpen ? 'rotate-0' : 'rotate-180',
+                        ].join(' ')}
+                      >
+                        ⌃
+                      </span>
+                    </div>
+                  </button>
+
+                  <div
+                    id={`roadmap-phase-${index}`}
+                    className={[
+                      'grid transition-all duration-300 ease-out',
+                      isOpen ? 'mt-4 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0',
+                    ].join(' ')}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,0.95fr)]">
+                        <span aria-hidden="true" className="absolute bottom-0 left-0 top-0 hidden border-l-2 border-dotted border-blue-300 lg:block" />
+                        <div className="space-y-4 lg:pl-6">
+                          {groups.length > 0 ? groups.map((group) => (
+                            <div key={group.title} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                              <div className="bg-slate-300 px-4 py-3">
+                                <p className="font-mono text-xs font-extrabold uppercase tracking-[0.16em] text-slate-700">{group.title}</p>
+                              </div>
+                              <div className="space-y-2 bg-white px-3 py-3">
+                                {group.items.map((skill) => (
+                                  <div key={skill}>
+                                    {(() => {
+                                      const detailKey = `${index}-${roadmapIdPart(group.title)}-${roadmapIdPart(skill)}`;
+                                      const isSkillOpen = openSkills.has(detailKey);
+                                      const topics = roadmapSkillTopics(phase, skill);
+                                      return (
+                                        <>
+                                          <button
+                                            type="button"
+                                            className="flex w-full items-center justify-between gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-left text-sm font-semibold text-slate-800 transition hover:border-yellow-400 hover:bg-yellow-100 focus:outline-none focus:ring-4 focus:ring-yellow-100"
+                                            aria-expanded={isSkillOpen}
+                                            aria-controls={`roadmap-skill-${detailKey}`}
+                                            title="Xem nội dung cần học"
+                                            onClick={() => toggleSkill(detailKey)}
+                                          >
+                                            <span>{skill}</span>
+                                            <svg
+                                              viewBox="0 0 20 20"
+                                              className={[
+                                                'h-4 w-4 shrink-0 text-yellow-700 transition-transform duration-200',
+                                                isSkillOpen ? 'rotate-180' : 'rotate-0',
+                                              ].join(' ')}
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              aria-hidden="true"
+                                            >
+                                              <path d="m5 8 5 5 5-5" />
+                                            </svg>
+                                          </button>
+                                          <div
+                                            id={`roadmap-skill-${detailKey}`}
+                                            className={[
+                                              'grid transition-all duration-300 ease-out',
+                                              isSkillOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+                                            ].join(' ')}
+                                          >
+                                            <div className="overflow-hidden">
+                                              <ul className="mt-2 space-y-2 rounded-lg border border-yellow-200 bg-white/90 px-3 py-3">
+                                                {topics.map((topic, topicIndex) => (
+                                                  <li key={`${topicIndex}-${topic}`} className="flex gap-2 text-xs leading-5 text-slate-600">
+                                                    <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-yellow-100 text-[11px] font-bold text-yellow-700">
+                                                      {topicIndex + 1}
+                                                    </span>
+                                                    <span>{topic}</span>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )) : (
+                            <div className="rounded-xl border border-slate-200 bg-white px-4 py-5 text-sm leading-6 text-slate-500 shadow-sm">
+                              Các kỹ năng chính của phase này đã được gom ở những phase trước để tránh lặp lại.
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${badge.badge}`}>{badge.label}</span>
+                          <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.18em] text-blue-600">Output</p>
+                          {phase.output && <p className="mt-3 text-sm font-bold leading-6 text-blue-700">{phase.output}</p>}
+                          {phase.reason && (
+                            <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-500">{phase.reason}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="mt-10 rounded-xl border border-blue-100 bg-white px-5 py-4 text-sm leading-6 text-slate-500 shadow-sm">
+          <span className="mr-3 inline-grid h-5 w-5 place-items-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">i</span>
+          Hoàn thành từng giai đoạn theo thứ tự. Mỗi phase đều có output cụ thể để bạn có thể kiểm chứng kết quả học tập
+          của mình trước khi tiếp tục.
+        </div>
       </div>
       <p className="mt-2 text-xs leading-5 text-slate-500">{item.comment}</p>
     </button>
@@ -839,6 +1086,7 @@ function SkillList({ title, items, tone = 'slate' }: { title: string; items: str
 
 export default function AnalysisResultPage() {
   const { id } = useParams<{ id: string }>();
+  const isAdminViewer = getStoredAuthUser()?.role === 'admin';
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -850,18 +1098,23 @@ export default function AnalysisResultPage() {
       if (!id) return;
       setLoading(true);
       setErrorMessage('');
+      setFeedbackMessage('');
+      setFeedbackEligibility(null);
+      setHasSubmittedFeedback(false);
+      setFeedbackForm(createInitialFeedbackForm());
       try {
         const response = await apiService.getAnalysisResult(id);
         setResult(response.data);
         setSelectedSectionName(response.data.section_scores[0]?.section ?? null);
       } catch (error) {
         setErrorMessage(getApiErrorMessage(error));
+        setFeedbackEligibilityLoading(false);
       } finally {
         setLoading(false);
       }
     };
     fetchResult();
-  }, [id]);
+  }, [id, isAdminViewer]);
 
   const visibleIssues = useMemo(() => {
     if (!result) return [];
@@ -912,6 +1165,74 @@ export default function AnalysisResultPage() {
     }
   };
 
+  const toggleSection = (section: string) => {
+    setOpenSections((current) => {
+      const next = new Set(current);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+      }
+      return next;
+    });
+    setActiveTab(section);
+  };
+
+  const handleTabSelect = (tabKey: string) => {
+    setActiveTab(tabKey);
+    if (tabKey !== 'overview') {
+      setOpenSections((current) => {
+        const next = new Set(current);
+        next.add(tabKey);
+        return next;
+      });
+    }
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (!id || !feedbackEligibility?.can_submit) return;
+    setFeedbackSubmitting(true);
+    setFeedbackMessage('');
+    try {
+      await apiService.submitFeedback({
+        analysis_id: id,
+        feedback_type: feedbackForm.feedback_type,
+        rating: feedbackForm.rating,
+        easy_to_understand: feedbackForm.easy_to_understand,
+        recommendation_specific: feedbackForm.recommendation_specific,
+        useful: feedbackForm.useful,
+        inaccurate: feedbackForm.inaccurate,
+        want_reanalyze: feedbackForm.want_reanalyze,
+        willing_to_recommend: feedbackForm.willing_to_recommend,
+        comment: feedbackForm.comment,
+      });
+      setFeedbackMessage('Cảm ơn bạn đã gửi phản hồi! Bạn có thể gửi thêm phản hồi bất cứ lúc nào trong chu kỳ hiện tại.');
+      setFeedbackMessageTone('success');
+      setHasSubmittedFeedback(true);
+      setFeedbackForm(createInitialFeedbackForm());
+      setFeedbackOpen(false);
+    } catch (error) {
+      setFeedbackMessage(getApiErrorMessage(error));
+      setFeedbackMessageTone('error');
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
+  const handleReanalysisClick = () => {
+    if (!id || isAdminViewer) return;
+    void apiService.trackAnalyticsEvent('analysis_restarted', { analysis_id: id }).catch(() => undefined);
+  };
+
+  const handleFeedbackToggle = () => {
+    if (!feedbackOpen && feedbackMessageTone === 'success') {
+      setFeedbackMessage('');
+    }
+    setFeedbackOpen((current) => !current);
+  };
+
+  const canSubmitFeedback = feedbackEligibility?.can_submit === true;
+
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-8">
       <div className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-center md:justify-between">
@@ -922,10 +1243,11 @@ export default function AnalysisResultPage() {
           <h1 className="mt-2 text-3xl font-bold text-slate-950">Kết quả tổng quan</h1>
         </div>
         <Link
-          to="/upload"
+          to={isAdminViewer ? '/admin/feedback' : '/upload'}
+          onClick={handleReanalysisClick}
           className="inline-flex justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700"
         >
-          Phân tích CV khác
+          {isAdminViewer ? 'Quay lại phản hồi' : 'Phân tích CV khác'}
         </Link>
       </div>
 
@@ -959,6 +1281,108 @@ export default function AnalysisResultPage() {
       </section>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className={`border-b border-slate-200 p-6 ${isAdminViewer ? 'hidden' : ''}`}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Phản hồi sau phân tích</h2>
+              <p className="text-sm text-slate-500">
+                {canSubmitFeedback
+                  ? hasSubmittedFeedback
+                    ? 'Phản hồi của bạn đã được ghi nhận. Bạn có thể gửi thêm phản hồi nếu cần.'
+                    : 'Mời bạn dành một phút đánh giá kết quả vừa nhận được.'
+                  : 'Hiện tại bạn chưa thể gửi phản hồi cho kết quả này.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={feedbackEligibilityLoading || !canSubmitFeedback}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              onClick={handleFeedbackToggle}
+            >
+              {feedbackEligibilityLoading
+                ? 'Đang kiểm tra...'
+                : !canSubmitFeedback
+                  ? 'Không thể gửi'
+                  : feedbackOpen
+                    ? 'Đóng biểu mẫu'
+                    : hasSubmittedFeedback ? 'Gửi thêm phản hồi' : 'Gửi phản hồi'}
+            </button>
+          </div>
+          {feedbackMessage && (
+            <p className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+              feedbackMessageTone === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-red-200 bg-red-50 text-red-700'
+            }`}>
+              {feedbackMessage}
+            </p>
+          )}
+          {!feedbackEligibilityLoading && !canSubmitFeedback && !feedbackMessage && feedbackEligibility?.reason && (
+            <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              {feedbackEligibility.reason}
+            </p>
+          )}
+          {feedbackOpen && canSubmitFeedback && (
+            <div className="mt-4 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block text-sm font-medium text-slate-700">
+                  Loại phản hồi
+                  <select
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    value={feedbackForm.feedback_type}
+                    onChange={(event) => setFeedbackForm((prev) => ({ ...prev, feedback_type: event.target.value as FeedbackType }))}
+                  >
+                    {feedbackTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="block text-sm font-medium text-slate-700">
+                  Đánh giá tổng thể (1-5)
+                  <select
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    value={feedbackForm.rating}
+                    onChange={(event) => setFeedbackForm((prev) => ({ ...prev, rating: Number(event.target.value) }))}
+                  >
+                    {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {feedbackQuestions.map((question) => (
+                  <label key={question.key} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
+                    <span className="block min-h-10 font-medium">{question.label}</span>
+                    <select
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
+                      value={String(feedbackForm[question.key])}
+                      onChange={(event) => setFeedbackForm((prev) => ({
+                        ...prev,
+                        [question.key]: event.target.value === 'true',
+                      }))}
+                    >
+                      <option value="true">Có</option>
+                      <option value="false">Không</option>
+                    </select>
+                  </label>
+                ))}
+              </div>
+              <label className="block text-sm font-medium text-slate-700">
+                Bình luận
+                <textarea
+                  className="mt-2 min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  value={feedbackForm.comment}
+                  onChange={(event) => setFeedbackForm((prev) => ({ ...prev, comment: event.target.value }))}
+                />
+              </label>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300" onClick={() => void handleFeedbackSubmit()} disabled={feedbackSubmitting || !canSubmitFeedback}>
+                  {feedbackSubmitting ? 'Đang gửi...' : 'Gửi phản hồi'}
+                </button>
+                <button type="button" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600" onClick={() => setFeedbackOpen(false)}>
+                  Hủy
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex gap-1 overflow-x-auto border-b border-slate-200 px-5">
           {tabs.map((tab) => (
             <button

@@ -141,6 +141,18 @@ Luồng đăng ký hiện tại bỏ qua xác thực email: tài khoản mới �
 
 ## 3. Chạy backend
 
+Chạy trực tiếp từ thư mục gốc của project (khuyến nghị):
+
+```powershell
+cd D:\SmartCV-Advisor
+.\start-backend.ps1
+```
+
+Script này truyền `--app-dir backend`, vì vậy Uvicorn luôn tìm thấy package
+`app` dù terminal được mở tại thư mục gốc.
+
+Hoặc chạy thủ công bên trong thư mục backend:
+
 ```powershell
 cd D:\SmartCV-Advisor\backend
 .\.venv\Scripts\Activate.ps1

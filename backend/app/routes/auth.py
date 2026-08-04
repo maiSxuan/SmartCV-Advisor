@@ -18,6 +18,7 @@ from app.services.auth_service import (
     register_user,
     reset_password,
 )
+from app.services.product_analytics_service import record_product_event_safely
 
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
@@ -29,6 +30,10 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     password_confirmation: str = Field(..., min_length=8, max_length=128)
     terms_accepted: bool
+    analytics_session_id: str | None = Field(default=None, max_length=120)
+    source: str | None = Field(default=None, max_length=120)
+    campaign: str | None = Field(default=None, max_length=160)
+    message_variant: str | None = Field(default=None, max_length=160)
 
 
 class LoginRequest(BaseModel):
@@ -64,6 +69,15 @@ async def register(payload: RegisterRequest) -> dict[str, Any]:
         password=payload.password,
         password_confirmation=payload.password_confirmation,
         terms_accepted=payload.terms_accepted,
+    )
+    await record_product_event_safely(
+        db,
+        event_name="registration_completed",
+        user_id=result["user"]["user_id"],
+        session_id=payload.analytics_session_id,
+        source=payload.source,
+        campaign=payload.campaign,
+        message_variant=payload.message_variant,
     )
     return {
         "data": result["user"],

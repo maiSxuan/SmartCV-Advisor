@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from app.db import db
+from app.services.plan_service import list_public_plans
 
 router = APIRouter(prefix="/api/v1/service-plans", tags=["Plans"])
 
@@ -71,7 +72,7 @@ PLANS = [
         "plan_id": "DV_FREE",
         "name": "Free",
         "price": 0,
-        "duration_days": None,
+        "duration_days": -1,
         "analysis_limit": 3,
         "features": FREE_FEATURES,
         "limited_features": FREE_LIMITED_FEATURES,
@@ -104,7 +105,11 @@ PLANS = [
 async def get_service_plans() -> dict[str, Any]:
     """Trả về danh sách gói dịch vụ từ GOIDV collection, fallback sang hardcoded nếu DB chưa có."""
     try:
-        db_plans = await db["GOIDV"].find({}).to_list(length=20)
+        db_plans = await list_public_plans(db)
+        for plan in db_plans:
+            plan["limited_features"] = plan.get("limited_features") or plan_limited_features(plan["plan_id"])
+        # An empty list is valid when Admin has disabled every plan.
+        return {"data": db_plans}
     except Exception:
         db_plans = []
 
@@ -141,7 +146,7 @@ async def get_service_plans() -> dict[str, Any]:
                 "plan_id": "DV_FREE",
                 "name": "Free",
                 "price": 0,
-                "duration_days": None,
+                "duration_days": -1,
                 "analysis_limit": 3,
                 "features": FREE_FEATURES,
                 "limited_features": FREE_LIMITED_FEATURES,

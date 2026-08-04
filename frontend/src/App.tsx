@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, Link } from 'react-router-dom';
+import AdminAnalyticsPage from './pages/AdminAnalyticsPage';
 import AdminCareerRolesPage from './pages/AdminCareerRolesPage';
+import AdminFeedbackPage from './pages/AdminFeedbackPage';
+import AdminPlansPage from './pages/AdminPlansPage';
 import AdminSkillScoresPage from './pages/AdminSkillScoresPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AnalysisResultPage from './pages/AnalysisResultPage';
@@ -210,6 +213,7 @@ function AppShell() {
           <Route path="/upload" element={<UploadCvPage />} />
           <Route path="/analysis/:id" element={<AnalysisResultPage />} />
           <Route path="/plans" element={<PlansPage />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/guide" element={<GuidePage />} />
           <Route path="/general-info" element={<GeneralInfoPage />} />
@@ -311,6 +315,10 @@ function AppRoutes() {
         <Route path="/admin/roles" element={<AdminCareerRolesPage />} />
         <Route path="/admin/skills" element={<AdminSkillScoresPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+        <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
+        <Route path="/admin/plans" element={<AdminPlansPage />} />
+        <Route path="/admin/analysis/:id" element={<AnalysisResultPage />} />
         <Route path="*" element={<Navigate replace to="/admin/roles" />} />
       </Routes>
     );
@@ -321,6 +329,7 @@ function AppRoutes() {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/guide" element={<GuidePage />} />
         <Route path="/general-info" element={<GeneralInfoPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/data-policy" element={<DataPolicyPage />} />

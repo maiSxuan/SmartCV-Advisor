@@ -9,6 +9,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ASCENDING, DESCENDING
 
 from app.services.auth_service import hash_password
+from app.services.database_bootstrap import (
+    DEFAULT_PREMIUM_COMING_SOON,
+    MVP_INDEXES,
+    drop_legacy_feedback_unique_index,
+)
 from app.services.role_dataset import build_role_seed_documents
 
 
@@ -158,11 +163,13 @@ async def main():
                         "TenGoi": "Free",
                         "Gia": Decimal128("0.00"),
                         "SoLuotPhanTich": 3,
-                        "HanSuDung": 30,
+                        "HanSuDung": -1,
                         "QuyenLoi": (
                             "3 lượt phân tích; xem điểm tổng quan; "
                             "xem lỗi phổ biến và gợi ý cải thiện tổng quan không kèm roadmap."
                         ),
+                        "SapRaMat": "",
+                        "TrangThai": "active",
                         "NgayTao": now,
                         "NgayCapNhat": None,
                         "MaADM": "ADM001",
@@ -178,6 +185,8 @@ async def main():
                             "xem roadmap sau khi đánh giá CV; "
                             "xem câu mẫu viết lại và sao chép nhanh."
                         ),
+                        "SapRaMat": DEFAULT_PREMIUM_COMING_SOON,
+                        "TrangThai": "active",
                         "NgayTao": now,
                         "NgayCapNhat": None,
                         "MaADM": "ADM001",
@@ -193,6 +202,8 @@ async def main():
                             "xem roadmap sau khi đánh giá CV; "
                             "xem câu mẫu viết lại và sao chép nhanh."
                         ),
+                        "SapRaMat": DEFAULT_PREMIUM_COMING_SOON,
+                        "TrangThai": "active",
                         "NgayTao": now,
                         "NgayCapNhat": None,
                         "MaADM": "ADM001",
@@ -451,6 +462,24 @@ async def main():
                     },
                 ],
             },
+
+            # ---------------------------------------------------------
+            # 16. DANHGIASP
+            # Không seed phản hồi giả; dữ liệu do người dùng tạo.
+            # ---------------------------------------------------------
+            {
+                "name": "DANHGIASP",
+                "documents": [],
+            },
+
+            # ---------------------------------------------------------
+            # 17. SUKIEN_SANPHAM
+            # Không seed sự kiện giả; dữ liệu do hành vi thực tế tạo.
+            # ---------------------------------------------------------
+            {
+                "name": "SUKIEN_SANPHAM",
+                "documents": [],
+            },
         ]
 
         # =============================================================
@@ -598,6 +627,9 @@ async def main():
                     },
                 )
             ],
+            "DANHGIASP": MVP_INDEXES["DANHGIASP"],
+            "SUKIEN_SANPHAM": MVP_INDEXES["SUKIEN_SANPHAM"],
+            "GOIDV": MVP_INDEXES["GOIDV"],
         }
 
         # =============================================================
@@ -617,6 +649,9 @@ async def main():
                 print(f"Collection already exists: {collection_name}")
 
             collection = db[collection_name]
+
+            if collection_name == "DANHGIASP":
+                await drop_legacy_feedback_unique_index(collection)
 
             if collection_name == "DIEMDANHGIA":
                 existing_indexes = await collection.list_indexes().to_list(length=50)
@@ -658,6 +693,13 @@ async def main():
                         set_on_insert_payload[k] = v
                     else:
                         set_payload[k] = v
+
+                # GOIDV is Admin-managed configuration. Re-running the setup
+                # script may add a missing default plan, but must never reset
+                # prices, quotas, benefits or status already edited by Admin.
+                if collection_name == "GOIDV":
+                    set_on_insert_payload = payload
+                    set_payload = {}
                 
                 update_doc = {}
                 if set_payload:
@@ -670,6 +712,16 @@ async def main():
                     update_doc,
                     upsert=True
                 )
+
+                if collection_name == "GOIDV":
+                    await collection.update_one(
+                        {"_id": document_id, "SapRaMat": {"$exists": False}},
+                        {"$set": {"SapRaMat": payload.get("SapRaMat", "")}},
+                    )
+                    await collection.update_one(
+                        {"_id": document_id, "HanSuDung": {"$ne": payload["HanSuDung"]}},
+                        {"$set": {"HanSuDung": payload["HanSuDung"]}},
+                    )
 
                 if result.upserted_id is not None:
                     inserted_count += 1

@@ -14,8 +14,10 @@ from app.services.analysis_service import (
     create_analysis_for_cv,
     ensure_analysis_quota_available,
     list_career_roles,
+    resolve_quota_state,
 )
 from app.services.cv_service import CONSENT_POLICY_VERSION, build_cv_document, public_cv_metadata
+from app.services.product_analytics_service import record_product_event_safely
 
 
 router = APIRouter(prefix="/api/v1/cvs", tags=["CV"])
@@ -82,6 +84,13 @@ async def upload_cv(
                 "hint": "Mở /api/health để xem database.status. Nếu dùng Atlas, kiểm tra DNS/mạng/IP allowlist; nếu dùng local, bật mongod và dùng mongodb://localhost:27017.",
             },
         ) from exc
+    await record_product_event_safely(
+        db,
+        event_name="upload_completed",
+        user_id=user["user_id"],
+        cv_id=cv_document["_id"],
+        metadata={"file_type": cv_document.get("Loai"), "size": cv_document.get("DungLuong")},
+    )
     return {
         "data": public_cv_metadata(cv_document),
         "meta": {"next_step": "select_career_role"},
@@ -117,12 +126,30 @@ async def create_analysis(
     payload: AnalysisCreateRequest,
     user: dict[str, str] = Depends(get_current_user),
 ) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    quota_state = await resolve_quota_state(db, user["user_id"], datetime.now(timezone.utc))
+    await record_product_event_safely(
+        db,
+        event_name="analysis_started",
+        user_id=user["user_id"],
+        cv_id=cv_id,
+        role_id=payload.career_role_id,
+    )
     result = await create_analysis_for_cv(
         db=db,
         cv_id=cv_id,
         role_id=payload.career_role_id,
         user_id=user["user_id"],
-        current_plan=user.get("current_plan"),
+        current_plan=quota_state["account_type"],
+    )
+    await record_product_event_safely(
+        db,
+        event_name="analysis_completed",
+        user_id=user["user_id"],
+        cv_id=cv_id,
+        analysis_id=result["analysis_id"],
+        role_id=result.get("role_id") or payload.career_role_id,
     )
     return {
         "data": result,
