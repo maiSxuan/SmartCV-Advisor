@@ -95,11 +95,9 @@ const freeLimitations = [
 
 const premiumBenefits = [
   'Không giới hạn lượt phân tích CV',
-  'Điểm tổng quan và các tiêu chí đánh giá',
-  'Điểm chi tiết theo từng phần CV',
   'Roadmap cải thiện sau mỗi lần đánh giá',
-  'Gợi ý cải thiện chi tiết và chuyên sâu',
   'Xem toàn bộ lịch sử phân tích',
+  'Gợi ý cải thiện chi tiết và chuyên sâu',
 ];
 
 const premiumComingSoon = [

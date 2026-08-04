@@ -24,13 +24,56 @@ import GeneralInfoPage from './pages/GeneralInfoPage';
 import { apiService, clearAuthSession, getStoredAuthSession, getStoredAuthUser } from './services/api';
 
 const navigationItems = [
-  { label: 'Tổng quan', path: '/' },
-  { label: 'Phân tích CV', path: '/upload' },
-  { label: 'Lịch sử phân tích', path: '/history' },
-  { label: 'Gói dịch vụ', path: '/plans' },
-  { label: 'Hướng dẫn', path: '/guide' },
-  { label: 'Hồ sơ cá nhân', path: '/profile' },
+  { label: 'Tổng quan', path: '/', icon: 'grid' },
+  { label: 'Phân tích CV', path: '/upload', icon: 'upload' },
+  { label: 'Lịch sử phân tích', path: '/history', icon: 'clock' },
+  { label: 'Gói dịch vụ', path: '/plans', icon: 'card' },
+  { label: 'Hồ sơ cá nhân', path: '/profile', icon: 'user' },
+  { label: 'Hướng dẫn', path: '/guide', icon: 'guide' },
 ];
+
+function NavIcon({ icon }: { icon: string }) {
+  if (icon === 'upload') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 16V5m0 0 4 4m-4-4-4 4M5 16v3h14v-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (icon === 'clock') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 7v5l3 2M5 5v5h5M5.6 14a7 7 0 1 0 1.8-6.6L5 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (icon === 'card') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M4 7h16v10H4zM4 10h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (icon === 'user') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8a7 7 0 0 0-14 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (icon === 'guide') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path d="M12 17h.01M12 13a3 3 0 1 0-3-3M5 4h14v16H5z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+      <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function AppShell() {
   const location = useLocation();
@@ -99,12 +142,13 @@ function AppShell() {
                 key={`${item.label}-${item.path}`}
                 to={item.path}
                 className={[
-                  'flex min-h-12 items-center rounded-2xl px-4 font-medium transition',
+                  'flex min-h-12 items-center gap-3 rounded-2xl px-4 font-medium transition',
                   active
                     ? 'bg-blue-50 text-blue-600'
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700',
                 ].join(' ')}
               >
+                <NavIcon icon={item.icon} />
                 {item.label}
               </Link>
             );
@@ -171,6 +215,7 @@ function AppShell() {
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/guide" element={<GuidePage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="/general-info" element={<GeneralInfoPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/data-policy" element={<DataPolicyPage />} />

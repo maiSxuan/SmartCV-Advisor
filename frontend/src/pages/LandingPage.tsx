@@ -5,6 +5,35 @@ import { formatPlanDuration, PREMIUM_PLANS, type PremiumCycle } from '../data/pl
 import { apiService } from '../services/api';
 import type { ServicePlan } from '../services/api';
 
+const freeBenefits = [
+  '3 lượt phân tích CV cho một chu kỳ tài khoản',
+  'Điểm tổng quan và các tiêu chí đánh giá',
+  'Điểm chi tiết theo từng phần CV',
+  'Gợi ý cải thiện cơ bản',
+  'Xem toàn bộ lịch sử phân tích',
+];
+
+const freeLimitations = [
+  'Roadmap cải thiện sau đánh giá',
+  'Gợi ý chuyên sâu',
+];
+
+const premiumBenefits = [
+  'Không giới hạn lượt phân tích CV',
+  'Roadmap cải thiện sau mỗi lần đánh giá',
+  'Xem toàn bộ lịch sử phân tích',
+  'Gợi ý cải thiện chi tiết và chuyên sâu',
+];
+
+const premiumComingSoon = [
+  'Danh sách lỗi chi tiết',
+  'Câu mẫu viết lại theo STAR',
+  'Sao chép nhanh từng câu mẫu',
+  'Nội dung viết lại nâng cao',
+  'Matching Score với mô tả công việc',
+  'AI Assistant hỗ trợ chỉnh sửa CV',
+  'Tải xuống CV đã chỉnh sửa',
+];
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -101,14 +130,22 @@ export default function LandingPage() {
             <Link to="/login" className="hover:text-blue-600 transition-colors">Đăng nhập</Link>
           </nav>
 
-          {/* CTA button */}
-          <button
-            className="h-9 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-95"
-            type="button"
-            onClick={() => handleCtaClick('header_free_analysis')}
-          >
-            Phân tích CV miễn phí
-          </button>
+          {/* Action group: Đăng ký + CTA */}
+          <div className="flex items-center gap-3">
+            <Link
+              to="/register"
+              className="hidden h-9 items-center rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-600 sm:inline-flex"
+            >
+              Đăng ký
+            </Link>
+            <button
+              className="h-9 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-95"
+              type="button"
+              onClick={() => navigate('/register')}
+            >
+              Phân tích CV miễn phí
+            </button>
+          </div>
         </div>
       </header>
 
@@ -186,29 +223,49 @@ export default function LandingPage() {
           <div className="grid gap-8 md:grid-cols-3">
             {[
               {
-                step: '01',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                    <path d="M12 3v12" />
+                    <path d="M7 8l5-5 5 5" />
+                    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                  </svg>
+                ),
                 title: 'Tải CV',
                 desc: 'Tải lên file PDF, DOC hoặc DOCX — hệ thống tự động xử lý và kiểm tra tính toàn vẹn của tài liệu.',
                 color: 'bg-blue-50 text-blue-600',
               },
               {
-                step: '02',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                    <path d="M3 3v18h18" />
+                    <path d="M18 17V9" />
+                    <path d="M13 17V5" />
+                    <path d="M8 17v-3" />
+                  </svg>
+                ),
                 title: 'Nhận điểm và phát hiện lỗi',
                 desc: 'Hệ thống AI chấm điểm CV theo 5 tiêu chí và chỉ ra các lỗi cần ưu tiên sửa trước, giúp bạn tiết kiệm thời gian.',
                 color: 'bg-indigo-50 text-indigo-600',
               },
               {
-                step: '03',
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                    <path d="M7 6l6 6-6 6" />
+                    <path d="M13 6l6 6-6 6" />
+                  </svg>
+                ),
                 title: 'Xem hướng cải thiện',
                 desc: 'Nhận danh sách gợi ý cải thiện CV chi tiết, phù hợp với vị trí mục tiêu để tăng cơ hội được gọi phỏng vấn.',
                 color: 'bg-emerald-50 text-emerald-600',
               },
             ].map((item) => (
-              <div key={item.step} className="group rounded-3xl border border-slate-100 bg-white p-8 shadow-sm transition hover:shadow-lg hover:-translate-y-1">
-                <div className={`mb-5 inline-flex h-10 w-10 items-center justify-center rounded-xl font-bold ${item.color}`}>
-                  {item.step}
+              <div key={item.title} className="group rounded-3xl border border-slate-100 bg-white p-8 shadow-sm transition hover:shadow-lg hover:-translate-y-1">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.color}`}>
+                    {item.icon}
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">{item.title}</h3>
                 </div>
-                <h3 className="mb-3 text-xl font-bold text-slate-900">{item.title}</h3>
                 <p className="leading-relaxed text-slate-500">{item.desc}</p>
               </div>
             ))}
@@ -302,43 +359,105 @@ export default function LandingPage() {
               Bắt đầu miễn phí, nâng cấp khi cần
             </h2>
             <p className="mt-3 text-slate-500">Phiên bản Free đã đủ để bắt đầu cải thiện CV của bạn</p>
-            {premiumCycles.length > 0 && (
-            <div className="mt-6 inline-flex rounded-2xl bg-slate-200/70 p-1.5 shadow-inner shadow-slate-300/50" role="group" aria-label="Chọn thời hạn gói Premium">
-              {premiumCycles.map((cycle) => (
-                <button
-                  key={cycle}
-                  type="button"
-                  aria-pressed={selectedCycle === cycle}
-                  onClick={() => setSelectedCycle(cycle)}
-                  className={`min-w-24 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
-                    selectedCycle === cycle
-                      ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-200'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {formatPlanDuration(
-                    premiumPlanFor(cycle)?.duration_days,
-                    PREMIUM_PLANS[cycle].durationLabel,
-                  )}
-                </button>
-              ))}
+          </div>
+
+          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2">
+            {/* Free */}
+            <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+              <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">Free</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-5xl font-extrabold text-slate-900">₫0</span>
+              </div>
+              <div className="mt-7 flex-1 space-y-6 text-sm text-slate-600">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Quyền lợi hiện có</p>
+                  <ul className="mt-4 space-y-3">
+                    {freeBenefits.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5">
+                        <svg viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border-t border-slate-200 pt-5">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Tính năng bị giới hạn</p>
+                  <ul className="mt-4 space-y-3 text-slate-500">
+                    {freeLimitations.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5">
+                        <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M16.5 10.5V7a4.5 4.5 0 0 0-9 0v3.5" />
+                          <path d="M6.75 10.5h10.5A1.75 1.75 0 0 1 19 12.25v6A1.75 1.75 0 0 1 17.25 20H6.75A1.75 1.75 0 0 1 5 18.25v-6a1.75 1.75 0 0 1 1.75-1.75Z" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <button
+                className="mt-8 h-12 w-full rounded-2xl border border-blue-200 bg-blue-50 font-bold text-blue-600 transition hover:bg-blue-100"
+                type="button"
+                onClick={() => navigate('/register')}
+              >
+                Đăng ký miễn phí
+              </button>
             </div>
             )}
           </div>
 
-          <div className="mx-auto grid max-w-4xl items-stretch gap-6 md:grid-cols-2">
-            {(!servicePlansLoaded || freePlan) && (
-              <FreePricingCard plan={freePlan} actionLabel="Đăng ký miễn phí" onAction={() => handleCtaClick('pricing_free')} />
-            )}
-            {premiumCycles.length > 0 && (
-              <PremiumPricingCard
-                cycle={selectedCycle}
-                plan={selectedPremiumPlan}
-                recommended={selectedCycle === '90'}
-                actionLabel={`Chọn ${selectedPremiumPlan?.name || PREMIUM_PLANS[selectedCycle].label}`}
-                onAction={() => handleCtaClick(`pricing_premium_${selectedCycle}`)}
-              />
-            )}
+            {/* Premium */}
+            <div className="relative flex flex-col rounded-3xl border-2 border-blue-500 bg-white p-8 shadow-xl shadow-blue-100">
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-4 py-1 text-xs font-bold text-white shadow">
+                Phổ biến nhất
+              </span>
+              <p className="text-sm font-semibold uppercase tracking-widest text-blue-600">
+                Premium — Job Search Pass
+              </p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-5xl font-extrabold text-slate-900">₫199.000</span>
+                <span className="text-slate-400">/30 ngày</span>
+              </div>
+              <div className="mt-7 flex-1 space-y-6 text-sm text-slate-600">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Quyền lợi hiện có</p>
+                  <ul className="mt-4 space-y-3">
+                    {premiumBenefits.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5">
+                        <svg viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border-t border-slate-200 pt-5">
+                  <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Sắp ra mắt</p>
+                  <ul className="mt-4 space-y-3">
+                    {premiumComingSoon.map((f) => (
+                      <li key={f} className="flex items-center gap-2.5 text-slate-400">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M12 8v4l3 3" />
+                          <circle cx="12" cy="12" r="9" />
+                        </svg>
+                        <span className="flex-1">{f}</span>
+                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Sắp ra mắt</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <button
+                className="mt-8 h-12 w-full rounded-2xl bg-blue-600 font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md"
+                type="button"
+                onClick={() => navigate('/register')}
+              >
+                Xem chi tiết Premium
+              </button>
+            </div>
           </div>
           {servicePlansLoaded && !freePlan && premiumCycles.length === 0 && (
             <p className="text-center text-sm text-slate-500">Hiện chưa có gói dịch vụ đang hoạt động.</p>

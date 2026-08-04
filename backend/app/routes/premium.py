@@ -63,6 +63,10 @@ def plan_limited_features(plan_id: str) -> list[str]:
     return list(FREE_LIMITED_FEATURES) if str(plan_id or "") == "DV_FREE" else []
 
 
+def plan_coming_soon(plan_id: str) -> list[str]:
+    return list(PREMIUM_COMING_SOON) if str(plan_id or "").startswith("DV_PREMIUM") else []
+
+
 PLANS = [
     {
         "plan_id": "DV_FREE",
@@ -109,7 +113,33 @@ async def get_service_plans() -> dict[str, Any]:
     except Exception:
         db_plans = []
 
-    # Fallback is used only when MongoDB cannot be reached.
+    if db_plans:
+        result = []
+        for plan in db_plans:
+            plan_id = str(plan.get("_id", ""))
+            price_raw = plan.get("Gia", 0)
+            try:
+                price = float(str(price_raw))
+            except Exception:
+                price = 0.0
+            result.append(
+                {
+                    "plan_id": plan_id,
+                    "name": plan.get("TenGoi", ""),
+                    "price": int(price),
+                    "duration_days": plan.get("HanSuDung"),
+                    "analysis_limit": plan.get("SoLuotPhanTich"),
+                    "features": normalize_plan_features(
+                        plan_id,
+                        [f.strip() for f in (plan.get("QuyenLoi") or "").split(";") if f.strip()],
+                    ),
+                    "limited_features": plan_limited_features(plan_id),
+                    "coming_soon": plan_coming_soon(plan_id),
+                }
+            )
+        return {"data": result}
+
+    # Fallback: trả về danh sách hardcoded đầy đủ cả 30 và 90 ngày
     return {
         "data": [
             {

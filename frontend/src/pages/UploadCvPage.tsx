@@ -8,11 +8,31 @@ const ACCEPTED_EXTENSIONS = ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'webp',
 
 type FlowStep = 'upload' | 'role' | 'confirm' | 'analyzing';
 
+type QuotaState = {
+  account_type: string;
+  current_plan_id: string;
+  unlimited: boolean;
+  label: string;
+};
+
 const stepItems = [
   { key: 'upload', number: 1, label: 'Tải CV' },
   { key: 'role', number: 2, label: 'Chọn vị trí' },
   { key: 'confirm', number: 3, label: 'Xác nhận' },
   { key: 'result', number: 4, label: 'Kết quả' },
+];
+
+const freeResultItems = [
+  'Điểm tổng quan và các tiêu chí đánh giá',
+  'Điểm chi tiết theo từng phần CV',
+  'Gợi ý cải thiện cơ bản',
+];
+
+const premiumResultItems = [
+  'Điểm tổng quan và các tiêu chí đánh giá',
+  'Điểm chi tiết theo từng phần CV',
+  'Roadmap cải thiện sau mỗi lần đánh giá',
+  'Gợi ý cải thiện chi tiết và chuyên sâu',
 ];
 
 function getStepIndex(step: FlowStep) {
@@ -113,10 +133,16 @@ export default function UploadCvPage() {
   const [progress, setProgress] = useState(0);
   const [quotaLabel, setQuotaLabel] = useState<string>('...');
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [quotaState, setQuotaState] = useState<QuotaState | null>(null);
 
   const selectedRole = roles.find((role) => role.role_id === selectedRoleId) ?? null;
   const fileIsReady = Boolean(selectedFile && !fileError);
   const canUpload = fileIsReady && consentAccepted && !uploading;
+  const isPremiumAccount =
+    quotaState?.unlimited === true ||
+    quotaState?.account_type === 'premium' ||
+    quotaState?.current_plan_id?.startsWith('DV_PREMIUM');
+  const expectedResultItems = isPremiumAccount ? premiumResultItems : freeResultItems;
 
   useEffect(() => {
     const loadRoles = async () => {
@@ -135,9 +161,16 @@ export default function UploadCvPage() {
     const loadQuota = async () => {
       try {
         const result = await apiService.getQuota();
+        setQuotaState({
+          account_type: result.data.account_type,
+          current_plan_id: result.data.current_plan_id,
+          unlimited: result.data.unlimited,
+          label: result.data.label,
+        });
         setQuotaLabel(result.data.label);
         setQuotaExceeded(!result.data.unlimited && (result.data.remaining ?? 1) <= 0);
       } catch {
+        setQuotaState(null);
         setQuotaLabel('...');
       }
     };
@@ -462,20 +495,24 @@ export default function UploadCvPage() {
             </div>
 
             <div className="mt-6 rounded-2xl bg-slate-50 p-5">
-              <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Kết quả bạn sẽ nhận được</p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Kết quả bạn sẽ nhận được</p>
+                <span
+                  className={[
+                    'w-fit rounded-full px-3 py-1 text-xs font-bold',
+                    isPremiumAccount ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600',
+                  ].join(' ')}
+                >
+                  {isPremiumAccount ? 'Gói Premium' : 'Gói Free'}
+                </span>
+              </div>
               <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  <span>Điểm tổng quan và điểm 5 tiêu chí</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  <span>Danh sách lỗi phổ biến cần cải thiện</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  <span>Gợi ý hành động theo thứ tự ưu tiên</span>
-                </li>
+                {expectedResultItems.map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isPremiumAccount ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                    <span>{item}</span>
+                  </li>
+                ))}
               </ul>
             </div>
 
