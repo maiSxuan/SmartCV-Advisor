@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from pymongo.errors import PyMongoError
 
+from app.services.role_dataset import load_default_roles
+
 
 EVENT_COLLECTION = "SUKIEN_SANPHAM"
 
@@ -24,6 +26,7 @@ SERVER_EVENT_NAMES = {
     "premium_converted",
 }
 ALL_EVENT_NAMES = PUBLIC_EVENT_NAMES | AUTHENTICATED_EVENT_NAMES | SERVER_EVENT_NAMES
+DEFAULT_ROLE_NAMES = {role["role_id"]: role["name"] for role in load_default_roles()}
 
 
 def utc_now() -> datetime:
@@ -127,6 +130,33 @@ def calculate_drop_off(funnel: dict[str, int]) -> list[dict[str, Any]]:
         lost = max(0, previous_count - current_count)
         rate = round((lost / previous_count) * 100, 1) if previous_count else 0.0
         result.append({"from": previous, "to": current, "count": lost, "rate": rate})
+    return result
+
+
+def calculate_conversion_rate(numerator: int, denominator: int) -> float:
+    """Return a percentage constrained to the valid 0-100 range."""
+    safe_numerator = max(0, int(numerator))
+    safe_denominator = max(0, int(denominator))
+    if safe_denominator == 0:
+        return 0.0
+    return round(min((safe_numerator / safe_denominator) * 100, 100.0), 1)
+
+
+def apply_role_names(
+    role_items: list[dict[str, Any]],
+    role_names: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Replace internal role identifiers with labels suitable for Admin UI."""
+    result: list[dict[str, Any]] = []
+    for item in role_items:
+        role_id = str(item.get("name") or item.get("_id") or "").strip()
+        result.append(
+            {
+                "_id": role_id,
+                "name": role_names.get(role_id) or "Vai trò chưa xác định",
+                "count": int(item.get("count", 0)),
+            }
+        )
     return result
 
 
@@ -258,6 +288,21 @@ async def get_analytics_summary(
     feedback_row = feedback_stats[0] if feedback_stats else {}
     feedback_count = int(feedback_row.get("count", 0) or 0)
     avg_rating = round(float(feedback_row.get("average", 0) or 0), 2)
+
+    role_ids = [str(item.get("name")) for item in roles if item.get("name")]
+    role_documents = (
+        await db["NGANHNGHIET"].find({"_id": {"$in": role_ids}}).to_list(length=len(role_ids))
+        if role_ids
+        else []
+    )
+    role_names = {
+        **DEFAULT_ROLE_NAMES,
+        **{
+            str(role.get("_id")): str(role.get("TenNganh"))
+            for role in role_documents
+            if role.get("_id") and role.get("TenNganh")
+        },
+    }
     return {
         "funnel": funnel,
         "drop_off": calculate_drop_off(funnel),
@@ -267,12 +312,12 @@ async def get_analytics_summary(
             "message_variants": variants,
         },
         "conversion": {
-            "registration_to_analysis": round((completed / registrations) * 100, 1) if registrations else 0.0,
-            "registered_to_premium": round((premium_count / registrations) * 100, 1) if registrations else 0.0,
+            "registration_to_analysis": calculate_conversion_rate(completed, registrations),
+            "registered_to_premium": calculate_conversion_rate(premium_count, registrations),
             "registered_count": registrations,
             "premium_count": premium_count,
         },
-        "role_choices": roles,
+        "role_choices": apply_role_names(roles, role_names),
         "feedback_count": feedback_count,
         "avg_rating": avg_rating,
     }

@@ -1,14 +1,19 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FreePricingCard, PremiumPricingCard } from '../components/PricingCards';
 import { sectionScoreGuides } from '../constants/scoring';
+import { formatPlanDuration, PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
+import { apiService, getStoredAuthUser } from '../services/api';
+import type { ServicePlan } from '../services/api';
 
 const analysisSteps = [
   {
     step: 'Bước 01',
     time: '~1 phút',
     title: 'Tải CV lên',
-    description: 'Tải file CV ở định dạng PDF, DOC hoặc DOCX. Dung lượng tối đa 5 MB.',
+    description: 'Tải tệp CV ở định dạng PDF, DOC hoặc DOCX. Dung lượng tối đa 5 MB.',
     checks: [
-      'Đảm bảo file không bị khóa hoặc mã hóa bằng mật khẩu.',
+      'Đảm bảo tệp không bị khóa hoặc mã hóa bằng mật khẩu.',
       'Ưu tiên định dạng PDF để đảm bảo hệ thống đọc đúng bố cục.',
       'Đọc và đồng ý chính sách xử lý dữ liệu trước khi tiếp tục.',
     ],
@@ -30,9 +35,10 @@ const analysisSteps = [
     step: 'Bước 03',
     time: '~30 giây',
     title: 'Hệ thống phân tích CV',
-    description: 'Hệ thống đọc nội dung CV, nhận diện section, chấm điểm và tổng hợp kết quả.',
+    description: 'Hệ thống đọc nội dung CV, nhận diện từng phần, chấm điểm và tổng hợp kết quả.',
     checks: [
-      'Quá trình thường tối đa 30 giây, không tắt trình duyệt.',
+      'Quá trình thường tối đa 30 giây',
+      'Khi phân tích CV vui lòng không tắt trình duyệt hoặc chuyển tab',
       'Hệ thống phát hiện mâu thuẫn thời gian để hiển thị cảnh báo kiểm tra.',
       'Kết quả dựa trên tiêu chuẩn vị trí, không phải đánh giá tuyệt đối năng lực.',
     ],
@@ -42,11 +48,11 @@ const analysisSteps = [
     step: 'Bước 04',
     time: 'Tự do',
     title: 'Xem kết quả và gợi ý',
-    description: 'Xem điểm tổng, điểm section, danh sách lỗi ưu tiên và các gợi ý cải thiện cụ thể.',
+    description: 'Xem điểm tổng, điểm từng phần, danh sách lỗi ưu tiên và các gợi ý cải thiện cụ thể.',
     checks: [
       'Tập trung vào lỗi màu đỏ cần ưu tiên trước.',
-      'Dùng tab gợi ý cải thiện để biết hành động cụ thể cần làm.',
-      'Người dùng Premium xem được câu mẫu viết lại chi tiết và sao chép nhanh.',
+      'Dùng thẻ gợi ý cải thiện để biết hành động cụ thể cần làm.',
+      'Người dùng Premium xem được lộ trình cải thiện và gợi ý chuyên sâu.',
     ],
     tone: 'green',
   },
@@ -80,48 +86,18 @@ const cvCriteria = [
   },
 ];
 
-const freeBenefits = [
-  '3 lượt phân tích CV cho một chu kỳ tài khoản',
-  'Điểm tổng quan và các tiêu chí đánh giá',
-  'Điểm chi tiết theo từng phần CV',
-  'Gợi ý cải thiện cơ bản',
-  'Xem toàn bộ lịch sử phân tích',
-];
-
-const freeLimitations = [
-  'Roadmap cải thiện sau đánh giá',
-  'Gợi ý chuyên sâu',
-];
-
-const premiumBenefits = [
-  'Không giới hạn lượt phân tích CV',
-  'Roadmap cải thiện sau mỗi lần đánh giá',
-  'Xem toàn bộ lịch sử phân tích',
-  'Gợi ý cải thiện chi tiết và chuyên sâu',
-];
-
-const premiumComingSoon = [
-  'Danh sách lỗi chi tiết',
-  'Câu mẫu viết lại theo STAR',
-  'Sao chép nhanh từng câu mẫu',
-  'Nội dung viết lại nâng cao',
-  'Matching Score với mô tả công việc',
-  'AI Assistant hỗ trợ chỉnh sửa CV',
-  'Tải xuống CV đã chỉnh sửa',
-];
-
 const faqs = [
   {
     question: 'CV của tôi có được lưu lại không?',
-    answer: 'CV được lưu trong tài khoản để bạn xem lại lịch sử phân tích. Bạn có thể gửi yêu cầu xóa dữ liệu trong hồ sơ cá nhân.',
+    answer: 'CV được lưu trong tài khoản để bạn xem lại lịch sử phân tích. Bạn có thể xóa trực tiếp từng CV tại Hồ sơ cá nhân > Dữ liệu & Quyền riêng tư.',
   },
   {
     question: 'Điểm CV được tính như thế nào?',
-    answer: 'Điểm tổng được tổng hợp từ 6 section chính: giới thiệu, học vấn, kinh nghiệm, dự án, kỹ năng kỹ thuật và chứng chỉ.',
+    answer: 'Điểm tổng được tổng hợp từ 6 phần chính: giới thiệu, học vấn, kinh nghiệm, dự án, kỹ năng kỹ thuật và chứng chỉ.',
   },
   {
     question: 'Tôi có thể phân tích CV bao nhiêu lần?',
-    answer: 'Gói Free có 3 lượt phân tích CV cho một chu kỳ tài khoản. Gói Premium không giới hạn lượt phân tích trong thời hạn gói.',
+    answer: 'Số lượt phân tích phụ thuộc vào cấu hình gói hiện tại. Vui lòng xem phần so sánh gói phía trên hoặc trang Gói dịch vụ để biết thông tin mới nhất.',
   },
   {
     question: 'Kết quả phân tích có chính xác 100% không?',
@@ -129,11 +105,7 @@ const faqs = [
   },
   {
     question: 'Tôi nên bắt đầu từ đâu sau khi xem kết quả?',
-    answer: 'Ưu tiên lỗi nghiêm trọng, bổ sung bằng chứng kỹ năng trong project hoặc experience, sau đó rà lại bố cục và ATS.',
-  },
-  {
-    question: 'Premium có hỗ trợ viết lại CV không?',
-    answer: 'Premium mở khóa gợi ý chuyên sâu, câu mẫu viết lại theo STAR và sao chép nhanh từng câu mẫu.',
+    answer: 'Ưu tiên lỗi nghiêm trọng, bổ sung bằng chứng kỹ năng trong phần dự án hoặc kinh nghiệm, sau đó rà lại bố cục và ATS.',
   },
 ];
 
@@ -155,23 +127,35 @@ function CheckIcon() {
   );
 }
 
-function LockIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-slate-400">
-      <path d="M6 8V6a4 4 0 0 1 8 0v2M5 8h10v8H5z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SoonIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500">
-      <path d="M10 4a6 6 0 1 1-5.2 3M10 7v4l3 2" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function GuidePage() {
+  const navigate = useNavigate();
+  const [selectedCycle, setSelectedCycle] = useState<PremiumCycle>('30');
+  const [servicePlans, setServicePlans] = useState<ServicePlan[]>([]);
+  const [servicePlansLoaded, setServicePlansLoaded] = useState(false);
+
+  useEffect(() => {
+    void apiService.getPlans()
+      .then((response) => {
+        setServicePlans(response.data);
+        setServicePlansLoaded(true);
+        const availableCycles = (['30', '90'] as PremiumCycle[]).filter((cycle) =>
+          response.data.some((plan) => plan.plan_id === `DV_PREMIUM_${cycle}`));
+        setSelectedCycle((current) => availableCycles.includes(current) ? current : (availableCycles[0] ?? current));
+      })
+      .catch(() => setServicePlansLoaded(true));
+  }, []);
+
+  const freePlan = servicePlans.find((plan) => plan.plan_id === 'DV_FREE');
+  const premiumPlanFor = (cycle: PremiumCycle) => servicePlans.find((plan) => plan.plan_id === `DV_PREMIUM_${cycle}`);
+  const premiumCycles = servicePlansLoaded
+    ? (['30', '90'] as PremiumCycle[]).filter((cycle) => Boolean(premiumPlanFor(cycle)))
+    : (['30', '90'] as PremiumCycle[]);
+  const selectedPremiumPlan = premiumPlanFor(selectedCycle);
+  const currentUser = getStoredAuthUser();
+  const analysisPath = currentUser && currentUser.role !== 'admin'
+    ? '/upload'
+    : currentUser?.role === 'admin' ? '/admin/roles' : '/register';
+
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-8">
       <section className="rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white shadow-sm">
@@ -188,7 +172,7 @@ function GuidePage() {
           Chỉ cần 4 bước đơn giản để biết CV của bạn đang đạt bao nhiêu điểm, mắc lỗi gì và cần cải thiện gì trước khi ứng tuyển.
         </p>
         <Link
-          to="/upload"
+          to={analysisPath}
           className="mt-7 inline-flex min-h-12 items-center justify-center rounded-2xl bg-white px-5 font-bold text-blue-600 shadow-sm transition hover:bg-blue-50"
         >
           Bắt đầu phân tích CV
@@ -242,14 +226,14 @@ function GuidePage() {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-2xl font-bold text-slate-950">Tiêu chí tham chiếu 6 section</h2>
+        <h2 className="text-2xl font-bold text-slate-950">Tiêu chí tham chiếu cho 6 phần CV</h2>
         <p className="mt-2 leading-6 text-slate-500">Các mốc dưới đây là thang tham chiếu hệ thống dùng để chấm điểm từng phần trong CV.</p>
         <div className="mt-5 space-y-4">
           {sectionScoreGuides.map((guide) => (
             <details key={guide.section} className="group rounded-2xl border border-blue-100 bg-blue-50/70 p-5 open:bg-blue-50">
               <summary className="flex cursor-pointer list-none items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-bold text-blue-700">{guide.section}</p>
+                  <p className="text-sm font-bold text-blue-700">Tiêu chí đánh giá</p>
                   <h3 className="mt-1 text-lg font-bold text-slate-950">{guide.label}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-500">{guide.summary}</p>
                 </div>
@@ -257,7 +241,7 @@ function GuidePage() {
               </summary>
               <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.85fr)]">
                 <div>
-                  <h4 className="font-bold text-blue-800">Rubric chấm điểm</h4>
+                  <h4 className="font-bold text-blue-800">Thang chấm điểm</h4>
                   <ol className="mt-3 space-y-2 text-sm leading-6 text-blue-900">
                     {guide.criteria.map((criterion, index) => (
                       <li key={criterion} className="flex gap-3">
@@ -289,59 +273,56 @@ function GuidePage() {
 
       <section className="mt-10">
         <h2 className="text-2xl font-bold text-slate-950">Phân biệt gói Free và Premium</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-slate-950">Gói Free</h3>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">Free</span>
+        <p className="mt-2 leading-6 text-slate-500">
+          Thông tin dưới đây được đồng bộ trực tiếp từ cấu hình gói dịch vụ hiện tại.
+        </p>
+
+        {premiumCycles.length > 0 && (
+          <div className="mt-5 flex justify-center">
+            <div className="inline-flex rounded-2xl bg-slate-100 p-1.5 shadow-inner shadow-slate-200/60" role="group" aria-label="Chọn thời hạn gói Premium">
+              {premiumCycles.map((cycle) => (
+                <button
+                  key={cycle}
+                  type="button"
+                  aria-pressed={selectedCycle === cycle}
+                  onClick={() => setSelectedCycle(cycle)}
+                  className={`min-w-24 rounded-xl px-5 py-2.5 text-sm font-semibold transition ${
+                    selectedCycle === cycle
+                      ? 'bg-white text-slate-900 shadow-md ring-1 ring-slate-200'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {formatPlanDuration(
+                    premiumPlanFor(cycle)?.duration_days,
+                    PREMIUM_PLANS[cycle].durationLabel,
+                  )}
+                </button>
+              ))}
             </div>
-            <h4 className="mt-5 text-sm font-bold uppercase tracking-wide text-slate-500">Quyền lợi hiện có</h4>
-            <ul className="mt-3 space-y-3 text-sm text-slate-600">
-              {freeBenefits.map((feature) => (
-                <li key={feature} className="flex gap-2">
-                  <CheckIcon />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <h4 className="mt-6 text-sm font-bold uppercase tracking-wide text-slate-500">Tính năng bị giới hạn</h4>
-            <ul className="mt-3 space-y-3 text-sm text-slate-500">
-              {freeLimitations.map((feature) => (
-                <li key={feature} className="flex gap-2">
-                  <LockIcon />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </article>
-          <article className="rounded-2xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-slate-950">Gói Premium</h3>
-              <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-600">Premium</span>
-            </div>
-            <h4 className="mt-5 text-sm font-bold uppercase tracking-wide text-blue-600">Quyền lợi hiện có</h4>
-            <ul className="mt-3 space-y-3 text-sm text-slate-600">
-              {premiumBenefits.map((feature) => (
-                <li key={feature} className="flex gap-2">
-                  <CheckIcon />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <h4 className="mt-6 text-sm font-bold uppercase tracking-wide text-blue-600">Sắp ra mắt</h4>
-            <ul className="mt-3 space-y-3 text-sm text-slate-600">
-              {premiumComingSoon.map((feature) => (
-                <li key={feature} className="flex gap-2">
-                  <SoonIcon />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <Link to="/plans" className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-blue-600 px-5 font-bold text-white transition hover:bg-blue-700">
-              Xem gói Premium
-            </Link>
-          </article>
+          </div>
+        )}
+
+        <div className="mx-auto mt-5 grid max-w-4xl items-stretch gap-6 md:grid-cols-2">
+          {(!servicePlansLoaded || freePlan) && (
+            <FreePricingCard
+              plan={freePlan}
+              actionLabel="Xem gói dịch vụ"
+              onAction={() => navigate('/plans')}
+            />
+          )}
+          {premiumCycles.length > 0 && (
+            <PremiumPricingCard
+              cycle={selectedCycle}
+              plan={selectedPremiumPlan}
+              recommended={selectedCycle === '90'}
+              actionLabel="Xem gói Premium"
+              onAction={() => navigate('/plans')}
+            />
+          )}
         </div>
+        {servicePlansLoaded && !freePlan && premiumCycles.length === 0 && (
+          <p className="mt-5 text-center text-sm text-slate-500">Hiện chưa có gói dịch vụ đang hoạt động.</p>
+        )}
       </section>
 
       <section className="mt-10">
@@ -361,7 +342,7 @@ function GuidePage() {
           <h2 className="text-2xl font-bold">Sẵn sàng phân tích CV?</h2>
           <p className="mt-2 text-slate-300">Tải CV lên và nhận kết quả trong vòng 30 giây.</p>
         </div>
-        <Link to="/upload" className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-blue-600 px-6 font-bold text-white transition hover:bg-blue-500">
+        <Link to={analysisPath} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-blue-600 px-6 font-bold text-white transition hover:bg-blue-500">
           Phân tích CV ngay
         </Link>
       </section>

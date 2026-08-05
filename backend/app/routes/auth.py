@@ -16,7 +16,9 @@ from app.services.auth_service import (
     logout_user,
     refresh_session,
     register_user,
+    resend_verification_email,
     reset_password,
+    verify_email,
 )
 from app.services.product_analytics_service import record_product_event_safely
 
@@ -60,6 +62,14 @@ class ResetPasswordRequest(BaseModel):
     password_confirmation: str = Field(..., min_length=8, max_length=128)
 
 
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(..., min_length=32, max_length=256)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=254)
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED, summary="UC-008: Đăng ký tài khoản")
 async def register(payload: RegisterRequest) -> dict[str, Any]:
     result = await register_user(
@@ -81,7 +91,31 @@ async def register(payload: RegisterRequest) -> dict[str, Any]:
     )
     return {
         "data": result["user"],
+        "meta": {
+            "next_step": "verify_email",
+            "message": result["message"],
+            "verification_expires_at": result["verification_expires_at"],
+        },
+        "error": None,
+    }
+
+
+@router.post("/verify-email", summary="Xác thực email đăng ký")
+async def verify_email_route(payload: VerifyEmailRequest) -> dict[str, Any]:
+    result = await verify_email(db, payload.token)
+    return {
+        "data": result,
         "meta": {"next_step": "login"},
+        "error": None,
+    }
+
+
+@router.post("/resend-verification", summary="Gửi lại email xác thực")
+async def resend_verification_route(payload: ResendVerificationRequest) -> dict[str, Any]:
+    result = await resend_verification_email(db, payload.email)
+    return {
+        "data": result,
+        "meta": {"next_step": "verify_email"},
         "error": None,
     }
 

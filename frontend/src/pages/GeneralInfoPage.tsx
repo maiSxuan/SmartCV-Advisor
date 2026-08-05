@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { getStoredAuthUser } from '../services/api';
 
 type ActiveTab = 'privacy' | 'data-policy';
 
@@ -7,27 +8,25 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const currentUser = getStoredAuthUser();
+  const analysisPath = currentUser && currentUser.role !== 'admin'
+    ? '/upload'
+    : currentUser?.role === 'admin' ? '/admin/roles' : '/register';
 
   // Determine active tab from prop, query parameter, or route pathname
   const getTabFromLocation = (): ActiveTab => {
-    if (initialTab) return initialTab;
     const queryTab = searchParams.get('tab');
     if (queryTab === 'data-policy' || queryTab === 'terms') return 'data-policy';
     if (queryTab === 'privacy' || queryTab === 'privacy-policy') return 'privacy';
     if (location.pathname.includes('data-policy') || location.pathname.includes('terms')) return 'data-policy';
-    return 'privacy';
+    if (location.pathname.includes('privacy')) return 'privacy';
+    return initialTab ?? 'privacy';
   };
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>(getTabFromLocation);
+  const activeTab = getTabFromLocation();
   const [activeSectionId, setActiveSectionId] = useState<string>('');
 
-  useEffect(() => {
-    const tab = getTabFromLocation();
-    setActiveTab(tab);
-  }, [location.pathname, searchParams, initialTab]);
-
   const handleTabChange = (tab: ActiveTab) => {
-    setActiveTab(tab);
     setSearchParams({ tab });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -60,13 +59,13 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
 
   const dataPolicySections = [
     { id: 'd1', title: '1. Đối tượng áp dụng' },
-    { id: 'd2', title: '2. Vai trò các bên (Controller/Processor)' },
+    { id: 'd2', title: '2. Vai trò các bên kiểm soát và xử lý dữ liệu' },
     { id: 'd3', title: '3. 7 nguyên tắc xử lý dữ liệu' },
-    { id: 'd4', title: '4. Quy trình xử lý sự đồng ý (Consent)' },
-    { id: 'd5', title: '5. Quy trình xử lý yêu cầu xóa dữ liệu' },
+    { id: 'd4', title: '4. Quy trình ghi nhận sự đồng ý' },
+    { id: 'd5', title: '5. Quy trình xóa CV và dữ liệu liên quan' },
     { id: 'd6', title: '6. Xử lý sự cố lộ, mất dữ liệu' },
     { id: 'd7', title: '7. Trách nhiệm người dùng khi cung cấp' },
-    { id: 'd8', title: '8. Thỏa thuận xử lý dữ liệu bên thứ ba (DPA)' },
+    { id: 'd8', title: '8. Thỏa thuận xử lý dữ liệu bên thứ ba' },
     { id: 'd9', title: '9. Hiệu lực, sửa đổi & Điều khoản chung' },
   ];
 
@@ -103,7 +102,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
             </Link>
             <button
               type="button"
-              onClick={() => navigate('/register')}
+              onClick={() => navigate(analysisPath)}
               className="rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
             >
               Phân tích CV ngay
@@ -233,7 +232,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                       Chính sách quyền riêng tư này giải thích cách SmartCV Advisor thu thập, sử dụng, lưu trữ, bảo vệ và xóa dữ liệu cá nhân của người dùng trong quá trình sử dụng nền tảng.
                     </p>
                     <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm leading-6 text-slate-700">
-                      <p className="font-semibold text-blue-900">Đơn vị vận hành trong phạm vi MVP / Prototype:</p>
+                      <p className="font-semibold text-blue-900">Đơn vị vận hành trong phạm vi phiên bản thử nghiệm:</p>
                       <p className="mt-1">
                         <strong>Nhóm dự án SmartCV Advisor – Nhóm 9</strong>
                         <br />
@@ -287,17 +286,17 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                           </tr>
                           <tr>
                             <td className="px-4 py-3 font-semibold sm:px-6">Nội dung CV</td>
-                            <td className="px-4 py-3 sm:px-6">Họ tên, email, số điện thoại, địa chỉ, quá trình học vấn, kinh nghiệm làm việc, kỹ năng, dự án, chứng chỉ và mọi thông tin khác có trong file CV bạn tải lên</td>
+                            <td className="px-4 py-3 sm:px-6">Họ tên, email, số điện thoại, địa chỉ, quá trình học vấn, kinh nghiệm làm việc, kỹ năng, dự án, chứng chỉ và mọi thông tin khác có trong tệp CV bạn tải lên</td>
                             <td className="px-4 py-3 text-slate-500 sm:px-6">Khi tải CV (PDF/DOCX/Ảnh)</td>
                           </tr>
                           <tr className="bg-slate-50/50">
-                            <td className="px-4 py-3 font-semibold sm:px-6">Nội dung Job Description</td>
-                            <td className="px-4 py-3 sm:px-6">Nội dung JD bạn dán/nhập để so khớp với CV</td>
+                            <td className="px-4 py-3 font-semibold sm:px-6">Nội dung mô tả công việc</td>
+                            <td className="px-4 py-3 sm:px-6">Nội dung mô tả công việc bạn dán hoặc nhập để so khớp với CV</td>
                             <td className="px-4 py-3 text-slate-500 sm:px-6">Khi sử dụng tính năng Matching</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-3 font-semibold sm:px-6">Dữ liệu sử dụng dịch vụ</td>
-                            <td className="px-4 py-3 sm:px-6">Lịch sử phân tích, điểm số CV, lượt sử dụng AI Assistant, gói dịch vụ đang dùng</td>
+                            <td className="px-4 py-3 sm:px-6">Lịch sử phân tích, điểm số CV, lượt sử dụng trợ lý AI, gói dịch vụ đang dùng</td>
                             <td className="px-4 py-3 text-slate-500 sm:px-6">Trong quá trình sử dụng</td>
                           </tr>
                           <tr className="bg-slate-50/50">
@@ -332,9 +331,9 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                     <h3 className="text-lg font-bold text-slate-900">4. Mục đích thu thập và xử lý dữ liệu</h3>
                     <p className="mt-3 leading-7">Chúng tôi xử lý dữ liệu cá nhân của bạn nhằm các mục đích sau:</p>
                     <ol className="mt-2 list-decimal space-y-2 pl-6 leading-7 text-slate-600">
-                      <li>Cung cấp dịch vụ cốt lõi: trích xuất nội dung CV, chấm điểm, so khớp với JD, tính Matching Score, xác định Keyword Gap/Skill Gap, tạo Roadmap up-skilling.</li>
-                      <li>Vận hành AI Assistant hỗ trợ chỉnh sửa nội dung CV theo yêu cầu của bạn.</li>
-                      <li>Quản lý tài khoản, xác thực đăng nhập, phân quyền theo gói dịch vụ (Free/Premium).</li>
+                      <li>Cung cấp dịch vụ cốt lõi: trích xuất nội dung CV, chấm điểm, so khớp với mô tả công việc, tính điểm phù hợp, xác định từ khóa hoặc kỹ năng còn thiếu và tạo lộ trình nâng cao kỹ năng.</li>
+                      <li>Vận hành trợ lý AI hỗ trợ chỉnh sửa nội dung CV theo yêu cầu của bạn.</li>
+                      <li>Quản lý tài khoản, xác thực đăng nhập và phân quyền theo gói dịch vụ Free hoặc Premium.</li>
                       <li>Xử lý thanh toán và quản lý gói dịch vụ Premium 30/90 ngày.</li>
                       <li>Gửi thông báo liên quan đến tài khoản, kết quả phân tích, trạng thái gói dịch vụ.</li>
                       <li>Cải thiện chất lượng thuật toán, sửa lỗi, phát triển tính năng mới (<strong>chỉ khi có sự đồng ý riêng của bạn</strong> — xem mục 8).</li>
@@ -358,7 +357,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                         <strong>Sự đồng ý của bạn</strong>: được thể hiện rõ ràng khi bạn đánh dấu vào ô xác nhận trước khi tải CV lên hệ thống (như minh họa tại màn hình "Tải CV của bạn lên").
                       </li>
                       <li>
-                        <strong>Thực hiện hợp đồng/cung cấp dịch vụ</strong>: mà bạn đã yêu cầu (chấm điểm CV, Matching Score...).
+                        <strong>Thực hiện hợp đồng/cung cấp dịch vụ</strong>: mà bạn đã yêu cầu (chấm điểm CV, tính điểm phù hợp...).
                       </li>
                       <li>
                         <strong>Nghĩa vụ pháp lý</strong>: trong các trường hợp bắt buộc theo quy định pháp luật.
@@ -375,7 +374,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                     <ul className="mt-3 space-y-3 pl-0 leading-7 text-slate-600">
                       <li className="flex items-start gap-3">
                         <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
-                        <span>CV và JD bạn cung cấp được gửi đến nhà cung cấp dịch vụ AI (hiện tại là <strong>OpenAI</strong>) để thực hiện việc trích xuất nội dung, chấm điểm, so khớp và tạo gợi ý chỉnh sửa.</span>
+                        <span>CV và mô tả công việc bạn cung cấp được gửi đến nhà cung cấp dịch vụ AI (hiện tại là <strong>OpenAI</strong>) để thực hiện việc trích xuất nội dung, chấm điểm, so khớp và tạo gợi ý chỉnh sửa.</span>
                       </li>
                       <li className="flex items-start gap-3">
                         <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
@@ -387,7 +386,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                       </li>
                       <li className="flex items-start gap-3">
                         <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
-                        <span>AI Assistant chỉ đề xuất cách diễn đạt dựa trên thông tin có thật do bạn cung cấp; hệ thống không tự động thêm thông tin sai sự thật vào CV.</span>
+                        <span>Trợ lý AI chỉ đề xuất cách diễn đạt dựa trên thông tin có thật do bạn cung cấp; hệ thống không tự động thêm thông tin sai sự thật vào CV.</span>
                       </li>
                       <li className="flex items-start gap-3">
                         <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600" />
@@ -411,12 +410,12 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                         </thead>
                         <tbody className="divide-y divide-slate-200 bg-white">
                           <tr>
-                            <td className="px-4 py-3 font-semibold sm:px-6">Nhà cung cấp API AI (OpenAI)</td>
+                            <td className="px-4 py-3 font-semibold sm:px-6">Nhà cung cấp dịch vụ AI (OpenAI)</td>
                             <td className="px-4 py-3 sm:px-6">Thực hiện phân tích, chấm điểm, gợi ý nội dung</td>
-                            <td className="px-4 py-3 text-slate-500 sm:px-6">Nội dung CV, JD</td>
+                            <td className="px-4 py-3 text-slate-500 sm:px-6">Nội dung CV và mô tả công việc</td>
                           </tr>
                           <tr className="bg-slate-50/50">
-                            <td className="px-4 py-3 font-semibold sm:px-6">Nhà cung cấp hạ tầng Cloud/Server, CSDL (MongoDB Atlas hoặc tương đương)</td>
+                            <td className="px-4 py-3 font-semibold sm:px-6">Nhà cung cấp hạ tầng đám mây, máy chủ và cơ sở dữ liệu (MongoDB Atlas hoặc tương đương)</td>
                             <td className="px-4 py-3 sm:px-6">Lưu trữ, vận hành hệ thống</td>
                             <td className="px-4 py-3 text-slate-500 sm:px-6">Toàn bộ dữ liệu tài khoản, CV</td>
                           </tr>
@@ -447,7 +446,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                   <section id="p8" className="scroll-mt-24 border-t border-slate-100 pt-8">
                     <h3 className="text-lg font-bold text-slate-900">8. Chuyển dữ liệu ra nước ngoài</h3>
                     <p className="mt-3 leading-7">
-                      Do sử dụng dịch vụ AI và hạ tầng Cloud có máy chủ đặt ngoài lãnh thổ Việt Nam, dữ liệu cá nhân của bạn có thể được <strong>chuyển ra nước ngoài</strong> để xử lý. Trong trường hợp này, chúng tôi cam kết:
+                      Do sử dụng dịch vụ AI và hạ tầng đám mây có máy chủ đặt ngoài lãnh thổ Việt Nam, dữ liệu cá nhân của bạn có thể được <strong>chuyển ra nước ngoài</strong> để xử lý. Trong trường hợp này, chúng tôi cam kết:
                     </p>
                     <ul className="mt-2 list-disc space-y-1.5 pl-6 leading-7 text-slate-600">
                       <li>Chỉ chuyển dữ liệu cho các đối tác có biện pháp bảo mật phù hợp.</li>
@@ -472,15 +471,13 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                             <td className="px-4 py-3 sm:px-6">Đến khi bạn yêu cầu xóa tài khoản hoặc tài khoản không hoạt động quá 12 tháng</td>
                           </tr>
                           <tr className="bg-slate-50/50">
-                            <td className="px-4 py-3 font-semibold sm:px-6">File CV đã tải lên</td>
+                            <td className="px-4 py-3 font-semibold sm:px-6">Tệp CV đã tải lên</td>
                             <td className="px-4 py-3 sm:px-6">Đến khi bạn chủ động xóa, hoặc tối đa 12 tháng kể từ lần truy cập gần nhất</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-3 font-semibold sm:px-6">Lịch sử phân tích</td>
                             <td className="px-4 py-3 sm:px-6">
-                              <strong>Registered User</strong>: 3 kết quả gần nhất.
-                              <br />
-                              <strong>Premium User</strong>: toàn bộ lịch sử trong thời gian còn hiệu lực gói, tối đa 6 tháng sau khi hết hạn.
+                              Người dùng Free và Premium đều xem được toàn bộ lịch sử. Dữ liệu được lưu cùng CV đến khi bạn chủ động xóa CV hoặc hết thời hạn lưu trữ nêu trên.
                             </td>
                           </tr>
                           <tr className="bg-slate-50/50">
@@ -506,7 +503,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                     <ul className="mt-2 list-disc space-y-2 pl-6 leading-7 text-slate-600">
                       <li>Mã hóa mật khẩu và dữ liệu nhạy cảm khi lưu trữ.</li>
                       <li>Mã hóa đường truyền (HTTPS/TLS) cho toàn bộ dữ liệu truyền tải giữa trình duyệt và máy chủ.</li>
-                      <li>Phân quyền truy cập dữ liệu theo vai trò (Registered User, Premium User, Admin); nhân sự nội bộ chỉ được truy cập dữ liệu cần thiết cho công việc.</li>
+                      <li>Phân quyền truy cập dữ liệu theo vai trò (người dùng Free, người dùng Premium, quản trị viên); nhân sự nội bộ chỉ được truy cập dữ liệu cần thiết cho công việc.</li>
                       <li>Giám sát, ghi log truy cập hệ thống để phát hiện truy cập bất thường.</li>
                       <li>Sao lưu định kỳ và kế hoạch khôi phục dữ liệu khi có sự cố.</li>
                     </ul>
@@ -525,7 +522,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                         { title: 'Quyền đồng ý/không đồng ý', desc: 'Đồng ý hoặc không đồng ý cho phép xử lý dữ liệu cá nhân.' },
                         { title: 'Quyền truy cập', desc: 'Xem, chỉnh sửa thông tin cá nhân qua mục Hồ sơ cá nhân.' },
                         { title: 'Quyền rút lại sự đồng ý', desc: 'Bất kỳ lúc nào đối với việc xử lý dữ liệu đã đồng ý trước đó.' },
-                        { title: 'Quyền xóa dữ liệu', desc: 'Yêu cầu xóa CV và dữ liệu cá nhân liên quan qua mục Dữ liệu & Quyền riêng tư hoặc email.' },
+                        { title: 'Quyền xóa dữ liệu', desc: 'Tự xóa từng CV tại Dữ liệu & Quyền riêng tư; liên hệ email nếu muốn xóa toàn bộ tài khoản hoặc dữ liệu khác.' },
                         { title: 'Quyền hạn chế xử lý', desc: 'Yêu cầu tạm ngừng xử lý dữ liệu trong một số trường hợp nhất định.' },
                         { title: 'Quyền phản đối', desc: 'Phản đối việc xử lý dữ liệu nhằm mục đích quảng cáo, tiếp thị.' },
                         { title: 'Quyền khiếu nại, tố cáo, khởi kiện', desc: 'Theo quy định pháp luật nếu cho rằng quyền của mình bị vi phạm.' },
@@ -604,7 +601,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                       ĐIỀU KHOẢN XỬ LÝ DỮ LIỆU
                     </h2>
                     <p className="mt-2 text-sm text-slate-500">
-                      Quy định chi tiết các nguyên tắc, vai trò và quy trình xử lý dữ liệu phát sinh khi phân tích CV và so khớp Job Description.
+                      Quy định chi tiết các nguyên tắc, vai trò và quy trình xử lý dữ liệu phát sinh khi phân tích CV và so khớp mô tả công việc.
                     </p>
                   </div>
 
@@ -614,8 +611,8 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                     <p className="mt-3 leading-7">Điều khoản này áp dụng riêng cho hoạt động xử lý dữ liệu cá nhân phát sinh khi bạn:</p>
                     <ul className="mt-2 list-disc space-y-1.5 pl-6 leading-7 text-slate-600">
                       <li>Tải CV lên hệ thống để phân tích.</li>
-                      <li>Nhập nội dung Job Description để so khớp.</li>
-                      <li>Sử dụng AI Assistant để chỉnh sửa nội dung CV.</li>
+                      <li>Nhập nội dung mô tả công việc để so khớp.</li>
+                      <li>Sử dụng trợ lý AI để chỉnh sửa nội dung CV.</li>
                     </ul>
                   </section>
 
@@ -636,7 +633,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                         <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-800">
                           Bên Xử lý Dữ liệu
                         </span>
-                        <h4 className="mt-3 font-bold text-slate-900">Nhà cung cấp AI (OpenAI) & Cloud</h4>
+                        <h4 className="mt-3 font-bold text-slate-900">Nhà cung cấp AI (OpenAI) và hạ tầng đám mây</h4>
                         <p className="mt-2 text-xs leading-relaxed text-slate-600">
                           Đóng vai trò <strong>Bên Xử lý dữ liệu</strong> (Data Processor) theo ủy quyền và chỉ dẫn của SmartCV Advisor, theo thỏa thuận xử lý dữ liệu đã ký kết.
                         </p>
@@ -696,15 +693,16 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
 
                   {/* Section B5 */}
                   <section id="d5" className="scroll-mt-24 border-t border-slate-100 pt-8">
-                    <h3 className="text-lg font-bold text-slate-900">5. Quy trình xử lý yêu cầu xóa dữ liệu</h3>
+                    <h3 className="text-lg font-bold text-slate-900">5. Quy trình xóa CV và dữ liệu liên quan</h3>
                     <p className="mt-3 leading-7">
-                      Khi bạn gửi yêu cầu xóa dữ liệu (qua mục <strong>"Dữ liệu & Quyền riêng tư"</strong> trong Hồ sơ cá nhân hoặc email hỗ trợ):
+                      Bạn có thể tự xóa từng CV ngay tại <strong>Hồ sơ cá nhân &gt; Dữ liệu & Quyền riêng tư</strong>, không cần quản trị viên phê duyệt.
+                      Nếu muốn xóa toàn bộ tài khoản hoặc dữ liệu khác, vui lòng gửi yêu cầu qua email hỗ trợ. Hệ thống sẽ thực hiện theo quy trình sau:
                     </p>
                     <div className="mt-4 space-y-3">
                       {[
                         { step: 'Bước 1', desc: 'Hệ thống xác thực danh tính người yêu cầu.' },
-                        { step: 'Bước 2', desc: 'Xóa file CV, kết quả phân tích và dữ liệu liên quan khỏi hệ thống lưu trữ chính trong vòng 3 ngày làm việc.' },
-                        { step: 'Bước 3', desc: 'Yêu cầu nhà cung cấp AI/Cloud xóa bản sao dữ liệu tạm thời (nếu có) theo thỏa thuận xử lý dữ liệu đã ký.' },
+                        { step: 'Bước 2', desc: 'Xóa tệp CV, kết quả phân tích và dữ liệu liên quan khỏi hệ thống lưu trữ chính trong vòng 3 ngày làm việc.' },
+                        { step: 'Bước 3', desc: 'Yêu cầu nhà cung cấp AI hoặc hạ tầng đám mây xóa bản sao dữ liệu tạm thời (nếu có) theo thỏa thuận xử lý dữ liệu đã ký.' },
                         { step: 'Bước 4', desc: 'Dữ liệu trong bản sao lưu (backup) sẽ được xóa theo chu kỳ sao lưu định kỳ, tối đa 3 ngày sau đó.' },
                       ].map((st) => (
                         <div key={st.step} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm">
@@ -732,7 +730,7 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
                   {/* Section B7 */}
                   <section id="d7" className="scroll-mt-24 border-t border-slate-100 pt-8">
                     <h3 className="text-lg font-bold text-slate-900">7. Trách nhiệm của người dùng khi cung cấp dữ liệu</h3>
-                    <p className="mt-3 leading-7">Khi tải CV hoặc nhập JD lên hệ thống, bạn cam kết:</p>
+                    <p className="mt-3 leading-7">Khi tải CV hoặc nhập mô tả công việc lên hệ thống, bạn cam kết:</p>
                     <ul className="mt-2 list-disc space-y-2 pl-6 leading-7 text-slate-600">
                       <li>Dữ liệu cung cấp là dữ liệu của chính bạn hoặc bạn có quyền hợp pháp để cung cấp.</li>
                       <li>Không tải lên CV chứa dữ liệu cá nhân của người khác mà chưa có sự đồng ý của họ.</li>
@@ -743,9 +741,9 @@ export default function GeneralInfoPage({ initialTab }: { initialTab?: ActiveTab
 
                   {/* Section B8 */}
                   <section id="d8" className="scroll-mt-24 border-t border-slate-100 pt-8">
-                    <h3 className="text-lg font-bold text-slate-900">8. Thỏa thuận xử lý dữ liệu với bên thứ ba (DPA)</h3>
+                    <h3 className="text-lg font-bold text-slate-900">8. Thỏa thuận xử lý dữ liệu với bên thứ ba</h3>
                     <p className="mt-3 leading-7">
-                      Đối với các bên xử lý dữ liệu thay mặt chúng tôi (nhà cung cấp AI, hạ tầng Cloud), SmartCV Advisor cam kết thiết lập thỏa thuận xử lý dữ liệu quy định rõ:
+                      Đối với các bên xử lý dữ liệu thay mặt chúng tôi (nhà cung cấp AI, hạ tầng đám mây), SmartCV Advisor cam kết thiết lập thỏa thuận xử lý dữ liệu quy định rõ:
                     </p>
                     <ul className="mt-2 list-disc space-y-2 pl-6 leading-7 text-slate-600">
                       <li>Phạm vi, mục đích và thời hạn xử lý dữ liệu được ủy quyền.</li>

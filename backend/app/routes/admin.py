@@ -23,7 +23,6 @@ from app.services.admin_service import (
     unlock_admin_user,
     update_admin_role,
     update_admin_role_status,
-    update_admin_user,
     update_role_skill_config,
 )
 
@@ -80,17 +79,6 @@ class SkillBulkUpdateRequest(BaseModel):
     weight: float | None = Field(default=None, ge=0, le=100)
     importance: int | None = Field(default=None, ge=0, le=3)
     status: str | None = Field(default=None, pattern="^(active|inactive)$")
-
-
-class AdminUserUpdateRequest(BaseModel):
-    full_name: str | None = Field(default=None, min_length=1, max_length=120)
-    email: str | None = Field(default=None, min_length=5, max_length=254)
-    phone: str | None = Field(default=None, max_length=30)
-    address: str | None = Field(default=None, max_length=240)
-    account_type: str | None = Field(default=None, pattern="^(registered|premium|admin)$")
-    industry_interest: str | None = Field(default=None, max_length=160)
-    target_role: str | None = Field(default=None, max_length=160)
-    current_level: str | None = Field(default=None, max_length=160)
 
 
 class LockUserRequest(BaseModel):
@@ -260,28 +248,6 @@ async def get_admin_users(
 async def get_admin_user(user_id: str, admin: dict[str, Any] = Depends(require_admin)) -> dict[str, Any]:
     detail = await get_admin_user_detail(db, user_id)
     return {"data": detail, "meta": {"actor": admin["user_id"]}, "error": None}
-
-
-@router.patch("/users/{user_id}", summary="UC-004: Admin chỉnh sửa thông tin người dùng")
-async def patch_admin_user(
-    user_id: str,
-    payload: AdminUserUpdateRequest,
-    admin: dict[str, Any] = Depends(require_admin),
-) -> dict[str, Any]:
-    updated = await update_admin_user(
-        db,
-        admin,
-        user_id,
-        full_name=payload.full_name,
-        email=payload.email,
-        phone=payload.phone,
-        address=payload.address,
-        account_type=payload.account_type,
-        industry_interest=payload.industry_interest,
-        target_role=payload.target_role,
-        current_level=payload.current_level,
-    )
-    return {"data": updated, "meta": {"message": "Cập nhật thông tin người dùng thành công."}, "error": None}
 
 
 @router.post("/users/{user_id}/lock", summary="UC-004: Admin khóa tài khoản người dùng")

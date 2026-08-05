@@ -20,12 +20,11 @@ const feedbackStatuses: Array<{ value: FeedbackStatus; label: string }> = [
   { value: 'KhongXuLy', label: 'Không xử lý' },
 ];
 
-const feedbackQuestions: Array<{ key: keyof Pick<AdminFeedbackItem, 'CauHoi1' | 'CauHoi2' | 'CauHoi3' | 'CauHoi4' | 'CauHoi5' | 'CauHoi6'>; label: string }> = [
+const feedbackQuestions: Array<{ key: keyof Pick<AdminFeedbackItem, 'CauHoi1' | 'CauHoi2' | 'CauHoi3' | 'CauHoi4' | 'CauHoi6'>; label: string }> = [
   { key: 'CauHoi1', label: 'Kết quả dễ hiểu' },
   { key: 'CauHoi2', label: 'Gợi ý đủ cụ thể' },
   { key: 'CauHoi3', label: 'Kết quả hữu ích' },
   { key: 'CauHoi4', label: 'Có nhận xét chưa chính xác' },
-  { key: 'CauHoi5', label: 'Muốn phân tích lại' },
   { key: 'CauHoi6', label: 'Sẵn sàng giới thiệu' },
 ];
 
@@ -157,7 +156,7 @@ export default function AdminFeedbackPage() {
           </select>
         </label>
         <label className="text-sm font-medium text-slate-600">
-          Rating
+          Điểm đánh giá
           <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2" value={filters.rating} onChange={(event) => setFilter('rating', event.target.value as FeedbackFilters['rating'])}>
             <option value="">Tất cả</option>
             {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}

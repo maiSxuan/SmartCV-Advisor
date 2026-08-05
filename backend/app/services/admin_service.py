@@ -34,6 +34,21 @@ def as_iso(value: Any) -> str | None:
     return str(value)
 
 
+def as_utc_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def clean_text(value: str | None, *, max_length: int, field_name: str) -> str:
     cleaned = (value or "").strip()
     if not cleaned:
@@ -918,10 +933,6 @@ async def bulk_update_role_skill_configs(
     return {"items": updated_items, "scoring_config_version": version}
 
 
-def is_valid_email(email: str) -> bool:
-    return re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email.strip()) is not None
-
-
 async def public_admin_user(db: Any, account: dict[str, Any]) -> dict[str, Any]:
     role = account.get("Role") or ("admin" if account.get("MaADM") else "registered")
     profile = None
@@ -947,7 +958,7 @@ async def public_admin_user(db: Any, account: dict[str, Any]) -> dict[str, Any]:
         "industry_interest": profile.get("NNQuanTam", ""),
         "target_role": profile.get("ViTriNN", ""),
         "current_level": profile.get("TrinhDoHV", ""),
-        "analysis_count": await db["CV"].count_documents({"MaKH": user_id}) if account.get("MaKH") else 0,
+        "analysis_count": await db["LICHSUPTCV"].count_documents({"MaKH": user_id}) if account.get("MaKH") else 0,
         "lock_reason": account.get("LockReason"),
         "locked_at": as_iso(account.get("LockedAt")),
     }
@@ -966,6 +977,8 @@ async def list_admin_users(
 ) -> dict[str, Any]:
     page = max(1, page)
     limit = min(MAX_PAGE_SIZE, max(1, limit))
+    normalized_date_from = as_utc_datetime(date_from)
+    normalized_date_to = as_utc_datetime(date_to)
     try:
         accounts = await db["TAIKHOAN"].find({}).sort("CreatedAt", -1).to_list(length=1000)
         normalized_search = normalized_unique(search)
@@ -979,11 +992,13 @@ async def list_admin_users(
                 continue
             if status_filter in {"active", "locked"} and item["status"] != status_filter:
                 continue
-            registered_at = account.get("CreatedAt")
-            if item["registered_at"] and isinstance(registered_at, datetime):
-                if date_from and registered_at < date_from:
+            registered_at = as_utc_datetime(item.get("registered_at"))
+            if normalized_date_from or normalized_date_to:
+                if not registered_at:
                     continue
-                if date_to and registered_at > date_to:
+                if normalized_date_from and registered_at < normalized_date_from:
+                    continue
+                if normalized_date_to and registered_at > normalized_date_to:
                     continue
             items.append(item)
     except DATABASE_ERRORS as exc:
@@ -1032,99 +1047,6 @@ async def get_admin_user_detail(db: Any, user_id: str) -> dict[str, Any]:
     except DATABASE_ERRORS as exc:
         raise database_unavailable("Chưa tải được chi tiết người dùng vì MongoDB chưa sẵn sàng.", exc) from exc
     return detail
-
-
-async def email_exists(db: Any, email: str, *, exclude_account_id: str) -> bool:
-    normalized = email.strip().lower()
-    existing = await db["TAIKHOAN"].find_one({"EmailNormalized": normalized, "_id": {"$ne": exclude_account_id}})
-    if existing:
-        return True
-    existing = await db["TAIKHOAN"].find_one(
-        {"Email": {"$regex": f"^{re.escape(normalized)}$", "$options": "i"}, "_id": {"$ne": exclude_account_id}}
-    )
-    return existing is not None
-
-
-async def update_admin_user(
-    db: Any,
-    actor: dict[str, Any],
-    user_id: str,
-    *,
-    full_name: str | None = None,
-    email: str | None = None,
-    phone: str | None = None,
-    address: str | None = None,
-    account_type: str | None = None,
-    industry_interest: str | None = None,
-    target_role: str | None = None,
-    current_level: str | None = None,
-) -> dict[str, Any]:
-    try:
-        account = await get_account_by_user_id(db, user_id)
-        before = await public_admin_user(db, account)
-        account_updates: dict[str, Any] = {"UpdatedAt": utc_now()}
-        profile_updates: dict[str, Any] = {"NgayCapNhat": utc_now()}
-
-        if full_name is not None:
-            profile_updates["HoTen"] = clean_text(full_name, max_length=120, field_name="Họ và tên")
-        if email is not None:
-            normalized_email = email.strip().lower()
-            if not is_valid_email(normalized_email):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"code": "ADMIN_EMAIL_INVALID", "message": "Email không đúng định dạng."},
-                )
-            if await email_exists(db, normalized_email, exclude_account_id=account["_id"]):
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail={"code": "ADMIN_EMAIL_EXISTS", "message": "Email này đã được sử dụng."},
-                )
-            account_updates["Email"] = normalized_email
-            account_updates["EmailNormalized"] = normalized_email
-            profile_updates["Email"] = normalized_email
-        if phone is not None:
-            profile_updates["SoDienThoai"] = optional_clean_text(phone, max_length=30)
-        if address is not None:
-            profile_updates["DiaChi"] = optional_clean_text(address, max_length=240)
-
-        role = account.get("Role")
-        if account.get("MaKH"):
-            if account_type in {"registered", "premium"}:
-                profile_updates["LoaiKH"] = account_type
-                account_updates["Role"] = account_type
-            if industry_interest is not None:
-                profile_updates["NNQuanTam"] = optional_clean_text(industry_interest, max_length=160)
-            if target_role is not None:
-                profile_updates["ViTriNN"] = optional_clean_text(target_role, max_length=160)
-            if current_level is not None:
-                profile_updates["TrinhDoHV"] = optional_clean_text(current_level, max_length=160)
-            await db["KHACHHANG"].update_one({"_id": user_id}, {"$set": profile_updates})
-        elif account.get("MaADM"):
-            if account_type and account_type != "admin":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"code": "ADMIN_ROLE_CHANGE_FORBIDDEN", "message": "Không thể đổi loại tài khoản Quản trị viên."},
-                )
-            await db["ADMIN"].update_one({"_id": user_id}, {"$set": profile_updates})
-
-        await db["TAIKHOAN"].update_one({"_id": account["_id"]}, {"$set": account_updates})
-        updated_account = await db["TAIKHOAN"].find_one({"_id": account["_id"]}) or {**account, **account_updates}
-        after = await public_admin_user(db, updated_account)
-        await write_admin_log(
-            db,
-            actor,
-            action="Cập nhật thông tin người dùng",
-            target_type="TAIKHOAN",
-            target_id=account["_id"],
-            before=before,
-            after=after,
-        )
-    except HTTPException:
-        raise
-    except DATABASE_ERRORS as exc:
-        raise database_unavailable("Chưa cập nhật được người dùng vì MongoDB chưa sẵn sàng.", exc) from exc
-
-    return after
 
 
 async def lock_admin_user(db: Any, actor: dict[str, Any], user_id: str, *, reason: str) -> dict[str, Any]:

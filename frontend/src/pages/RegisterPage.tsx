@@ -49,8 +49,8 @@ export default function RegisterPage() {
         passwordConfirmation,
         termsAccepted,
       });
-      const search = new URLSearchParams({ email, registered: '1' });
-      navigate(`/login?${search.toString()}`);
+      const search = new URLSearchParams({ email, sent: '1' });
+      navigate(`/verify-email?${search.toString()}`);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error));
     } finally {

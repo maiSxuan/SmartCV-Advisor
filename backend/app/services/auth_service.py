@@ -5,32 +5,65 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import html
 import os
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlencode
 from uuid import uuid4
 
 import jwt
 from fastapi import HTTPException, status
 
 from app.services.analysis_service import DATABASE_ERRORS
+from app.services.email_service import (
+    EmailConfigurationError,
+    EmailDeliveryError,
+    ensure_email_delivery_configured,
+    send_auth_email,
+)
 
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "smartcv-local-dev-change-me")
+JWT_SECRET_KEY = os.getenv(
+    "JWT_SECRET_KEY",
+    "smartcv-local-development-only-change-this-key",
+)
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "30"))
+# User and Admin access sessions share the same one-day lifetime.  Deployments
+# can still override this explicitly when their security policy requires it.
+ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "1440"))
 REFRESH_TOKEN_DAYS = int(os.getenv("REFRESH_TOKEN_DAYS", "7"))
 REMEMBER_ME_REFRESH_DAYS = int(os.getenv("REMEMBER_ME_REFRESH_DAYS", "30"))
 TEMP_LOCK_MINUTES = int(os.getenv("AUTH_TEMP_LOCK_MINUTES", "15"))
 MAX_FAILED_LOGIN_ATTEMPTS = int(os.getenv("AUTH_MAX_FAILED_LOGIN_ATTEMPTS", "5"))
 PASSWORD_RESET_TOKEN_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_MINUTES", "30"))
+EMAIL_VERIFICATION_TOKEN_MINUTES = int(
+    os.getenv("EMAIL_VERIFICATION_TOKEN_MINUTES", os.getenv("EMAIL_TOKEN_MINUTES", "30"))
+)
+VERIFICATION_RESEND_COOLDOWN_SECONDS = int(os.getenv("AUTH_EMAIL_RESEND_COOLDOWN_SECONDS", "60"))
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").strip().rstrip("/")
 PASSWORD_HASH_PREFIX = "scrypt"
 
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def as_utc(value: Any) -> datetime | None:
+    """Normalize MongoDB datetimes, which may be returned without tzinfo."""
+
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def is_expired(value: Any, *, now: datetime | None = None) -> bool:
+    normalized = as_utc(value)
+    return normalized is None or normalized <= (now or utc_now())
 
 
 def normalize_email(email: str) -> str:
@@ -64,6 +97,101 @@ def mask_email(email: str) -> str:
 
 def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def is_email_verified(account: dict[str, Any]) -> bool:
+    """Keep legacy active accounts usable while enforcing new registrations.
+
+    EmailVerified did not exist in the original data model.  A missing field is
+    therefore treated as a verified legacy account, while an explicit False is
+    always treated as an unverified new account.
+    """
+
+    if account.get("Role") == "admin" or account.get("MaADM"):
+        return True
+    if "EmailVerified" not in account:
+        return True
+    return account.get("EmailVerified") is True
+
+
+def auth_email_http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, EmailConfigurationError):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "AUTH_EMAIL_NOT_CONFIGURED",
+                "message": "Dịch vụ email chưa được cấu hình. Vui lòng liên hệ quản trị viên.",
+            },
+        )
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={
+            "code": "AUTH_EMAIL_DELIVERY_FAILED",
+            "message": "Chưa thể gửi email. Vui lòng thử lại sau.",
+        },
+    )
+
+
+def frontend_link(path: str, **query: str) -> str:
+    return f"{FRONTEND_URL}/{path.lstrip('/')}?{urlencode(query)}"
+
+
+async def send_verification_email(*, email: str, full_name: str, token: str) -> None:
+    verification_url = frontend_link("verify-email", token=token, email=email)
+    safe_name = html.escape(full_name or "bạn")
+    safe_url = html.escape(verification_url, quote=True)
+    expiry_minutes = EMAIL_VERIFICATION_TOKEN_MINUTES
+    await send_auth_email(
+        recipient=email,
+        subject="Xác thực tài khoản SmartCV Advisor",
+        text_body=(
+            f"Xin chào {full_name or 'bạn'},\n\n"
+            "Vui lòng xác thực địa chỉ email để kích hoạt tài khoản SmartCV Advisor:\n"
+            f"{verification_url}\n\n"
+            f"Liên kết có hiệu lực trong {expiry_minutes} phút. "
+            "Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này."
+        ),
+        html_body=(
+            "<div style=\"font-family:Arial,sans-serif;line-height:1.6;color:#0f172a\">"
+            f"<h2>Xin chào {safe_name},</h2>"
+            "<p>Vui lòng xác thực địa chỉ email để kích hoạt tài khoản SmartCV Advisor.</p>"
+            f"<p><a href=\"{safe_url}\" style=\"display:inline-block;padding:12px 20px;"
+            "background:#2563eb;color:#fff;text-decoration:none;border-radius:10px\">"
+            "Xác thực email</a></p>"
+            f"<p>Liên kết có hiệu lực trong {expiry_minutes} phút.</p>"
+            "<p>Nếu bạn không đăng ký tài khoản, hãy bỏ qua email này.</p>"
+            "</div>"
+        ),
+    )
+
+
+async def send_password_reset_email(*, email: str, full_name: str, token: str) -> None:
+    reset_url = frontend_link("reset-password", token=token, email=email)
+    safe_name = html.escape(full_name or "bạn")
+    safe_url = html.escape(reset_url, quote=True)
+    expiry_minutes = PASSWORD_RESET_TOKEN_MINUTES
+    await send_auth_email(
+        recipient=email,
+        subject="Đặt lại mật khẩu SmartCV Advisor",
+        text_body=(
+            f"Xin chào {full_name or 'bạn'},\n\n"
+            "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn:\n"
+            f"{reset_url}\n\n"
+            f"Liên kết có hiệu lực trong {expiry_minutes} phút và chỉ dùng được một lần. "
+            "Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email."
+        ),
+        html_body=(
+            "<div style=\"font-family:Arial,sans-serif;line-height:1.6;color:#0f172a\">"
+            f"<h2>Xin chào {safe_name},</h2>"
+            "<p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>"
+            f"<p><a href=\"{safe_url}\" style=\"display:inline-block;padding:12px 20px;"
+            "background:#2563eb;color:#fff;text-decoration:none;border-radius:10px\">"
+            "Đặt lại mật khẩu</a></p>"
+            f"<p>Liên kết có hiệu lực trong {expiry_minutes} phút và chỉ dùng được một lần.</p>"
+            "<p>Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email.</p>"
+            "</div>"
+        ),
+    )
 
 
 def hash_password(password: str) -> str:
@@ -123,7 +251,7 @@ def public_user(customer: dict[str, Any] | None, account: dict[str, Any]) -> dic
         "role": role,
         "account_type": plan,
         "status": account.get("TrangThai", "active"),
-        "email_verified": bool(account.get("EmailVerified", role == "admin")),
+        "email_verified": is_email_verified(account),
     }
 
 
@@ -146,6 +274,7 @@ def issue_access_token(account: dict[str, Any]) -> tuple[str, datetime]:
         "user_id": account.get("MaKH") or account.get("MaADM"),
         "role": account.get("Role") or ("admin" if account.get("MaADM") else "registered"),
         "type": "access",
+        "auth_version": int(account.get("AuthVersion", 0) or 0),
         "exp": expires_at,
         "iat": utc_now(),
         "jti": uuid4().hex,
@@ -187,8 +316,8 @@ async def build_session_response(db: Any, account: dict[str, Any], remember_me: 
 
 
 def ensure_account_can_login(account: dict[str, Any]) -> None:
-    locked_until = account.get("LockedUntil")
-    if isinstance(locked_until, datetime) and locked_until > utc_now():
+    locked_until = as_utc(account.get("LockedUntil"))
+    if locked_until and locked_until > utc_now():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -243,21 +372,50 @@ async def register_user(
     try:
         existing_account = await find_account_by_email(db, normalized_email)
         if existing_account:
+            if not is_email_verified(existing_account):
+                existing_expiry = as_utc(existing_account.get("EmailVerificationExpiresAt"))
+                last_sent_at = as_utc(existing_account.get("VerificationEmailLastSentAt"))
+                customer = await find_customer_for_account(db, existing_account)
+
+                # A successful email is already in flight. Treat a repeated
+                # form submission as idempotent instead of returning 409.
+                if last_sent_at and existing_expiry and existing_expiry > utc_now():
+                    return {
+                        "user": public_user(customer, existing_account),
+                        "message": "Tài khoản đang chờ xác thực. Vui lòng kiểm tra hộp thư hoặc thư rác.",
+                        "verification_expires_at": existing_expiry,
+                    }
+
+                # If the first SMTP delivery failed after the pending account
+                # was persisted, a retry issues a fresh token and sends again.
+                resend_result = await resend_verification_email(db, normalized_email)
+                return {
+                    "user": public_user(customer, existing_account),
+                    "message": resend_result["message"],
+                    "verification_expires_at": resend_result.get("expires_at") or existing_expiry,
+                }
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={"code": "AUTH_EMAIL_EXISTS", "message": "Email này đã được sử dụng."},
             )
 
+        # Validate configuration before inserting an account that could not be
+        # activated.  Actual network delivery happens only after the token is
+        # safely persisted.
+        ensure_email_delivery_configured()
+
         now = utc_now()
         customer_id = f"KH_{uuid4().hex[:10].upper()}"
         account_id = f"TK_{customer_id}"
+        verification_token = secrets.token_urlsafe(48)
+        verification_expires_at = now + timedelta(minutes=EMAIL_VERIFICATION_TOKEN_MINUTES)
 
         customer = {
             "_id": customer_id,
             "HoTen": clean_name,
             "Email": normalized_email,
             "EmailNormalized": normalized_email,
-            "TrangThai": "Hoạt động",
+            "TrangThai": "Chờ xác thực email",
             "LoaiKH": "registered",
             "TrinhDoHV": "",
             "ViTriNN": "",
@@ -273,23 +431,39 @@ async def register_user(
             "MatKhauHash": hash_password(password),
             "MaKH": customer_id,
             "Role": "registered",
-            "TrangThai": "active",
-            "EmailVerified": True,
-            "VerifiedAt": now,
+            "TrangThai": "pending_verification",
+            "EmailVerified": False,
+            "VerifiedAt": None,
+            "EmailVerificationTokenHash": token_hash(verification_token),
+            "EmailVerificationExpiresAt": verification_expires_at,
+            "VerificationEmailLastSentAt": None,
             "FailedLoginCount": 0,
             "LockedUntil": None,
+            "AuthVersion": 0,
             "CreatedAt": now,
             "UpdatedAt": now,
         }
 
         await db["KHACHHANG"].insert_one(customer)
         await db["TAIKHOAN"].insert_one(account)
+        await send_verification_email(
+            email=normalized_email,
+            full_name=clean_name,
+            token=verification_token,
+        )
+        sent_at = utc_now()
+        await db["TAIKHOAN"].update_one(
+            {"_id": account_id},
+            {"$set": {"VerificationEmailLastSentAt": sent_at, "UpdatedAt": sent_at}},
+        )
+        account["VerificationEmailLastSentAt"] = sent_at
+        account["UpdatedAt"] = sent_at
         await db["LOG_KH"].insert_one(
             {
                 "_id": f"LOG_{account_id}_{uuid4().hex[:8].upper()}",
-                "HanhDong": "Đăng ký tài khoản",
+                "HanhDong": "Đăng ký tài khoản - chờ xác thực email",
                 "DuLieuTruoc": None,
-                "DuLieuSau": {"Email": normalized_email, "TrangThai": "active"},
+                "DuLieuSau": {"Email": normalized_email, "TrangThai": "pending_verification"},
                 "KetQua": "Thanh cong",
                 "ThoiDiemThucHien": now,
                 "MaKH": customer_id,
@@ -299,6 +473,8 @@ async def register_user(
         )
     except HTTPException:
         raise
+    except (EmailConfigurationError, EmailDeliveryError) as exc:
+        raise auth_email_http_error(exc) from exc
     except DATABASE_ERRORS as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -307,6 +483,196 @@ async def register_user(
 
     return {
         "user": public_user(customer, account),
+        "message": "Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.",
+        "verification_expires_at": verification_expires_at,
+    }
+
+
+async def verify_email(db: Any, token: str) -> dict[str, Any]:
+    """Activate a newly registered account using a one-time email token."""
+
+    digest = token_hash(token.strip())
+    try:
+        account = await db["TAIKHOAN"].find_one(
+            {
+                "$or": [
+                    {"EmailVerificationTokenHash": digest},
+                    {"LastEmailVerificationTokenHash": digest},
+                ]
+            }
+        )
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "AUTH_VERIFICATION_INVALID",
+                    "message": "Liên kết xác thực không hợp lệ hoặc đã được sử dụng.",
+                },
+            )
+        # Opening the same link twice (for example, React Strict Mode issuing a
+        # development retry) is safe and idempotent.  The token can no longer
+        # change account state, but the user still sees the successful result.
+        if (
+            account.get("LastEmailVerificationTokenHash") == digest
+            and is_email_verified(account)
+        ):
+            customer = await find_customer_for_account(db, account)
+            return {
+                "message": "Email đã được xác thực. Bạn có thể đăng nhập.",
+                "user": public_user(customer, account),
+            }
+        if is_expired(account.get("EmailVerificationExpiresAt")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "AUTH_VERIFICATION_EXPIRED",
+                    "message": "Liên kết xác thực đã hết hạn. Vui lòng yêu cầu gửi lại email xác thực.",
+                    "email_masked": mask_email(str(account.get("Email", ""))),
+                    "can_resend": True,
+                },
+            )
+
+        now = utc_now()
+        verification_result = await db["TAIKHOAN"].update_one(
+            {"_id": account["_id"], "EmailVerificationTokenHash": digest},
+            {
+                "$set": {
+                    "EmailVerified": True,
+                    "VerifiedAt": now,
+                    "TrangThai": "active",
+                    "LastEmailVerificationTokenHash": digest,
+                    "EmailVerificationConsumedAt": now,
+                    "UpdatedAt": now,
+                },
+                "$unset": {
+                    "EmailVerificationTokenHash": "",
+                    "EmailVerificationExpiresAt": "",
+                },
+            },
+        )
+        if getattr(verification_result, "matched_count", 1) == 0:
+            # A concurrent request may have consumed the token after our read.
+            # Treat that completed verification as an idempotent success.
+            concurrently_verified = await db["TAIKHOAN"].find_one(
+                {"LastEmailVerificationTokenHash": digest, "EmailVerified": True}
+            )
+            if not concurrently_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "code": "AUTH_VERIFICATION_INVALID",
+                        "message": "Liên kết xác thực không hợp lệ hoặc đã được sử dụng.",
+                    },
+                )
+            account = concurrently_verified
+        if account.get("MaKH"):
+            await db["KHACHHANG"].update_one(
+                {"_id": account["MaKH"]},
+                {"$set": {"TrangThai": "Hoạt động", "NgayCapNhat": now}},
+            )
+
+        fresh_account = await db["TAIKHOAN"].find_one({"_id": account["_id"]}) or {
+            **account,
+            "EmailVerified": True,
+            "VerifiedAt": now,
+            "TrangThai": "active",
+        }
+        customer = await find_customer_for_account(db, fresh_account)
+    except HTTPException:
+        raise
+    except DATABASE_ERRORS as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "DATABASE_UNAVAILABLE",
+                "message": "Chưa xác thực được email vì MongoDB chưa sẵn sàng.",
+            },
+        ) from exc
+
+    return {
+        "message": "Xác thực email thành công. Bạn có thể đăng nhập.",
+        "user": public_user(customer, fresh_account),
+    }
+
+
+async def resend_verification_email(db: Any, email: str) -> dict[str, Any]:
+    """Issue a fresh verification token for an unverified account."""
+
+    normalized_email = normalize_email(email)
+    if not is_valid_email(normalized_email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "AUTH_EMAIL_INVALID", "message": "Email không đúng định dạng."},
+        )
+
+    try:
+        account = await find_account_by_email(db, normalized_email)
+        if not account:
+            return {
+                "message": "Nếu tài khoản tồn tại và chưa xác thực, email xác thực mới sẽ được gửi.",
+                "email_masked": mask_email(normalized_email),
+            }
+        if is_email_verified(account):
+            return {
+                "message": "Email đã được xác thực. Bạn có thể đăng nhập.",
+                "email_masked": mask_email(normalized_email),
+            }
+
+        ensure_email_delivery_configured()
+        now = utc_now()
+        last_sent_at = as_utc(account.get("VerificationEmailLastSentAt"))
+        if last_sent_at:
+            retry_after = VERIFICATION_RESEND_COOLDOWN_SECONDS - int((now - last_sent_at).total_seconds())
+            if retry_after > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail={
+                        "code": "AUTH_VERIFICATION_RATE_LIMITED",
+                        "message": "Vui lòng chờ trước khi yêu cầu gửi lại email xác thực.",
+                        "retry_after_seconds": retry_after,
+                    },
+                )
+
+        verification_token = secrets.token_urlsafe(48)
+        expires_at = now + timedelta(minutes=EMAIL_VERIFICATION_TOKEN_MINUTES)
+        await db["TAIKHOAN"].update_one(
+            {"_id": account["_id"]},
+            {
+                "$set": {
+                    "EmailVerificationTokenHash": token_hash(verification_token),
+                    "EmailVerificationExpiresAt": expires_at,
+                    "UpdatedAt": now,
+                }
+            },
+        )
+        customer = await find_customer_for_account(db, account)
+        await send_verification_email(
+            email=normalized_email,
+            full_name=str((customer or {}).get("HoTen") or account.get("HoTen") or "bạn"),
+            token=verification_token,
+        )
+        sent_at = utc_now()
+        await db["TAIKHOAN"].update_one(
+            {"_id": account["_id"]},
+            {"$set": {"VerificationEmailLastSentAt": sent_at, "UpdatedAt": sent_at}},
+        )
+    except HTTPException:
+        raise
+    except (EmailConfigurationError, EmailDeliveryError) as exc:
+        raise auth_email_http_error(exc) from exc
+    except DATABASE_ERRORS as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "DATABASE_UNAVAILABLE",
+                "message": "Chưa gửi lại được email xác thực vì MongoDB chưa sẵn sàng.",
+            },
+        ) from exc
+
+    return {
+        "message": "Email xác thực mới đã được gửi. Vui lòng kiểm tra hộp thư.",
+        "email_masked": mask_email(normalized_email),
+        "expires_at": expires_at,
     }
 
 
@@ -352,9 +718,22 @@ async def login_user(db: Any, *, email: str, password: str, remember_me: bool) -
                 },
             )
 
+        if not is_email_verified(account):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "AUTH_EMAIL_UNVERIFIED",
+                    "message": "Tài khoản chưa được xác thực. Vui lòng kiểm tra email hoặc gửi lại email xác thực.",
+                    "email_masked": mask_email(normalized_email),
+                    "can_resend": True,
+                },
+            )
+
         now = utc_now()
         login_updates: dict[str, Any] = {"FailedLoginCount": 0, "LockedUntil": None, "LastLoginAt": now, "UpdatedAt": now}
-        if not account.get("EmailVerified"):
+        # Accounts created before email verification was introduced do not
+        # have the field.  Migrate them lazily without blocking existing users.
+        if "EmailVerified" not in account:
             login_updates.update({"EmailVerified": True, "VerifiedAt": now, "TrangThai": "active"})
         await db["TAIKHOAN"].update_one(
             {"_id": account["_id"]},
@@ -431,21 +810,37 @@ async def forgot_password(db: Any, email: str) -> dict[str, Any]:
             detail={"code": "AUTH_EMAIL_INVALID", "message": "Email không đúng định dạng."},
         )
 
+    expires_at = utc_now() + timedelta(minutes=PASSWORD_RESET_TOKEN_MINUTES)
     try:
         account = await find_account_by_email(db, normalized_email)
-        reset_token = secrets.token_urlsafe(32)
-        expires_at = utc_now() + timedelta(minutes=PASSWORD_RESET_TOKEN_MINUTES)
         if account:
+            ensure_email_delivery_configured()
+            reset_token = secrets.token_urlsafe(48)
+            now = utc_now()
+            expires_at = now + timedelta(minutes=PASSWORD_RESET_TOKEN_MINUTES)
             await db["TAIKHOAN"].update_one(
                 {"_id": account["_id"]},
                 {
                     "$set": {
                         "PasswordResetTokenHash": token_hash(reset_token),
                         "PasswordResetExpiresAt": expires_at,
-                        "UpdatedAt": utc_now(),
+                        "UpdatedAt": now,
                     }
                 },
             )
+            customer = await find_customer_for_account(db, account)
+            await send_password_reset_email(
+                email=normalized_email,
+                full_name=str((customer or {}).get("HoTen") or account.get("HoTen") or "bạn"),
+                token=reset_token,
+            )
+            sent_at = utc_now()
+            await db["TAIKHOAN"].update_one(
+                {"_id": account["_id"]},
+                {"$set": {"PasswordResetEmailSentAt": sent_at, "UpdatedAt": sent_at}},
+            )
+    except (EmailConfigurationError, EmailDeliveryError) as exc:
+        raise auth_email_http_error(exc) from exc
     except DATABASE_ERRORS as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -453,10 +848,11 @@ async def forgot_password(db: Any, email: str) -> dict[str, Any]:
         ) from exc
 
     return {
-        "message": "Liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email.",
+        # Keep the same response for known and unknown addresses to prevent
+        # account enumeration from the forgot-password endpoint.
+        "message": "Nếu email đã đăng ký, liên kết đặt lại mật khẩu sẽ được gửi. Vui lòng kiểm tra hộp thư.",
         "email_masked": mask_email(normalized_email),
-        "delivery": "mock_email_queued",
-        "demo_reset_token": reset_token if account else None,
+        "delivery": "smtp_email_sent_if_account_exists",
         "expires_at": expires_at,
     }
 
@@ -476,25 +872,39 @@ async def reset_password(
     validate_password_strength(password)
 
     try:
-        account = await db["TAIKHOAN"].find_one({"PasswordResetTokenHash": token_hash(token)})
+        reset_token_hash = token_hash(token)
+        account = await db["TAIKHOAN"].find_one({"PasswordResetTokenHash": reset_token_hash})
         if not account:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"code": "AUTH_RESET_INVALID", "message": "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."},
             )
         expires_at = account.get("PasswordResetExpiresAt")
-        if isinstance(expires_at, datetime) and expires_at < utc_now():
+        if is_expired(expires_at):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"code": "AUTH_RESET_EXPIRED", "message": "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."},
             )
 
-        await db["TAIKHOAN"].update_one(
-            {"_id": account["_id"]},
+        reset_result = await db["TAIKHOAN"].update_one(
+            {"_id": account["_id"], "PasswordResetTokenHash": reset_token_hash},
             {
                 "$set": {"MatKhauHash": hash_password(password), "FailedLoginCount": 0, "LockedUntil": None, "UpdatedAt": utc_now()},
                 "$unset": {"PasswordResetTokenHash": "", "PasswordResetExpiresAt": ""},
+                "$inc": {"AuthVersion": 1},
             },
+        )
+        if getattr(reset_result, "matched_count", 1) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "AUTH_RESET_INVALID",
+                    "message": "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã được sử dụng.",
+                },
+            )
+        await db["REFRESH_TOKENS"].update_many(
+            {"MaTK": account["_id"], "RevokedAt": None},
+            {"$set": {"RevokedAt": utc_now()}},
         )
     except HTTPException:
         raise
@@ -530,6 +940,16 @@ async def get_current_user_from_token(db: Any, token: str) -> dict[str, Any]:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={"code": "AUTH_TOKEN_INVALID", "message": "Phiên đăng nhập không hợp lệ."},
+            )
+        token_auth_version = int(payload.get("auth_version", 0) or 0)
+        account_auth_version = int(account.get("AuthVersion", 0) or 0)
+        if token_auth_version != account_auth_version:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "code": "AUTH_SESSION_REVOKED",
+                    "message": "Phiên đăng nhập đã bị thu hồi. Vui lòng đăng nhập lại.",
+                },
             )
         ensure_account_can_login(account)
         customer = await find_customer_for_account(db, account)

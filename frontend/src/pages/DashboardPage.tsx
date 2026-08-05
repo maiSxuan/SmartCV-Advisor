@@ -6,6 +6,7 @@ interface HistoryItem {
   analysis_id: string;
   cv_name: string;
   overall_score: number;
+  role_name?: string | null;
   created_at: string;
   status: string;
 }
@@ -107,7 +108,9 @@ export default function DashboardPage() {
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
           <p className="font-semibold text-slate-500 text-xs uppercase tracking-wider">Điểm cao nhất</p>
           <h3 className="mt-2 text-3xl font-extrabold text-slate-900">{maxScoreItem?.overall_score || 0}</h3>
-          <p className="mt-1 text-xs text-slate-400 truncate">Frontend Developer</p>
+          <p className="mt-1 truncate text-xs text-slate-400" title={maxScoreItem?.role_name || 'Chưa xác định'}>
+            {maxScoreItem?.role_name || 'Chưa xác định'}
+          </p>
         </div>
 
         {/* Card 4 */}
@@ -152,7 +155,9 @@ export default function DashboardPage() {
                 <div key={item.analysis_id} className="flex items-center justify-between p-6 hover:bg-slate-50 transition">
                   <div>
                     <h4 className="font-bold text-slate-900 text-lg truncate max-w-[200px] sm:max-w-xs">{item.cv_name}</h4>
-                    <p className="text-sm text-slate-500 mt-0.5">Frontend Developer · {dateStr}</p>
+                    <p className="mt-0.5 text-sm text-slate-500">
+                      {item.role_name || 'Chưa xác định'} · {dateStr}
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-6">
@@ -179,7 +184,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row items-center justify-between bg-purple-50 rounded-3xl border border-purple-100 p-6 sm:p-8">
           <div className="mb-4 sm:mb-0">
             <h3 className="font-bold text-slate-900 text-lg">Nâng cấp Premium để mở khóa gợi ý chi tiết</h3>
-            <p className="text-sm text-slate-500 mt-1">Câu mẫu viết lại, phân tích chuyên sâu và nhiều hơn nữa.</p>
+            <p className="mt-1 text-sm text-slate-500">Lộ trình cải thiện, gợi ý chuyên sâu và nhiều quyền lợi hơn.</p>
           </div>
           <button
             onClick={() => navigate('/plans')}

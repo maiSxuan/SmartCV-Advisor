@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FreePricingCard, PremiumPricingCard } from '../components/PricingCards';
 import { formatPlanDuration, PREMIUM_PLANS, type PremiumCycle } from '../data/plans';
-import { apiService } from '../services/api';
+import { apiService, getStoredAuthUser } from '../services/api';
 import type { ServicePlan } from '../services/api';
 
 
@@ -35,9 +35,15 @@ export default function LandingPage() {
     ? (['30', '90'] as PremiumCycle[]).filter((cycle) => Boolean(premiumPlanFor(cycle)))
     : (['30', '90'] as PremiumCycle[]);
   const selectedPremiumPlan = premiumPlanFor(selectedCycle);
-  const handleCtaClick = (messageVariant: string) => {
+  const handleAnalysisCtaClick = (messageVariant: string) => {
     void apiService.trackPublicAnalyticsEvent('cta_clicked', { message_variant: messageVariant }).catch(() => undefined);
-    navigate('/register');
+    const currentUser = getStoredAuthUser();
+    navigate(currentUser && currentUser.role !== 'admin' ? '/upload' : currentUser?.role === 'admin' ? '/admin/roles' : '/register');
+  };
+  const handlePlanCtaClick = (messageVariant: string) => {
+    void apiService.trackPublicAnalyticsEvent('cta_clicked', { message_variant: messageVariant }).catch(() => undefined);
+    const currentUser = getStoredAuthUser();
+    navigate(currentUser && currentUser.role !== 'admin' ? '/plans' : currentUser?.role === 'admin' ? '/admin/plans' : '/register');
   };
 
   return (
@@ -51,7 +57,7 @@ export default function LandingPage() {
               CV
             </span>
             <span className="text-lg font-bold">
-              SmartCV <span className="text-blue-600">Advisor</span>
+              SmartCV <span className="hidden text-blue-600 sm:inline">Advisor</span>
             </span>
           </Link>
 
@@ -96,24 +102,23 @@ export default function LandingPage() {
                 </div>
               )}
             </div>
-
-            <Link to="/login" className="hover:text-blue-600 transition-colors">Đăng nhập</Link>
           </nav>
 
-          {/* Action group: Đăng ký + CTA */}
-          <div className="flex items-center gap-3">
+          {/* Authentication + primary CTA */}
+          <div className="flex shrink-0 items-center gap-1.5 border-l border-slate-200 pl-2 sm:gap-2 sm:pl-3 md:pl-5">
             <Link
-              to="/register"
-              className="hidden h-9 items-center rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-600 sm:inline-flex"
+              to="/login"
+              className="inline-flex h-10 items-center justify-center rounded-xl px-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 sm:px-3.5"
             >
-              Đăng ký
+              Đăng nhập
             </Link>
             <button
-              className="h-9 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-95"
               type="button"
-              onClick={() => navigate('/register')}
+              onClick={() => handleAnalysisCtaClick('header_free_analysis')}
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:scale-[0.98] sm:px-4"
             >
-              Phân tích CV miễn phí
+              <span className="lg:hidden">Bắt đầu</span>
+              <span className="hidden lg:inline">Phân tích CV miễn phí</span>
             </button>
           </div>
         </div>
@@ -129,7 +134,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-3xl text-center">
             <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-1.5 text-xs font-semibold text-blue-600">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-              AI-Powered CV Analysis
+              Phân tích CV bằng AI
             </span>
 
             <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl md:text-6xl">
@@ -148,7 +153,7 @@ export default function LandingPage() {
               <button
                 className="inline-flex h-13 items-center rounded-2xl bg-blue-600 px-8 text-base font-bold text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-500/30 active:scale-95"
                 type="button"
-                onClick={() => handleCtaClick('hero_free_analysis')}
+                onClick={() => handleAnalysisCtaClick('hero_free_analysis')}
               >
                 Phân tích CV miễn phí
               </button>
@@ -201,7 +206,7 @@ export default function LandingPage() {
                   </svg>
                 ),
                 title: 'Tải CV',
-                desc: 'Tải lên file PDF, DOC hoặc DOCX — hệ thống tự động xử lý và kiểm tra tính toàn vẹn của tài liệu.',
+                desc: 'Tải lên tệp PDF, DOC hoặc DOCX — hệ thống tự động xử lý và kiểm tra tính toàn vẹn của tài liệu.',
                 color: 'bg-blue-50 text-blue-600',
               },
               {
@@ -267,7 +272,7 @@ export default function LandingPage() {
               },
               {
                 label: 'Từ khóa',
-                desc: 'Keyword phù hợp với vị trí mục tiêu',
+                desc: 'Từ khóa phù hợp với vị trí mục tiêu',
                 color: 'bg-violet-500',
               },
               {
@@ -358,15 +363,15 @@ export default function LandingPage() {
 
           <div className="mx-auto grid max-w-4xl items-stretch gap-6 md:grid-cols-2">
             {(!servicePlansLoaded || freePlan) && (
-              <FreePricingCard plan={freePlan} actionLabel="Đăng ký miễn phí" onAction={() => handleCtaClick('pricing_free')} />
+              <FreePricingCard plan={freePlan} actionLabel="Đăng ký miễn phí" onAction={() => handlePlanCtaClick('pricing_free')} />
             )}
             {premiumCycles.length > 0 && (
               <PremiumPricingCard
                 cycle={selectedCycle}
                 plan={selectedPremiumPlan}
                 recommended={selectedCycle === '90'}
-                actionLabel={`Chọn ${selectedPremiumPlan?.name || PREMIUM_PLANS[selectedCycle].label}`}
-                onAction={() => handleCtaClick(`pricing_premium_${selectedCycle}`)}
+                actionLabel={`Chọn ${PREMIUM_PLANS[selectedCycle].label}`}
+                onAction={() => handlePlanCtaClick(`pricing_premium_${selectedCycle}`)}
               />
             )}
           </div>
@@ -382,12 +387,12 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-blue-600 text-[10px] font-bold text-white">CV</span>
             <span className="font-semibold text-slate-600">SmartCV Advisor</span>
-            <span>— "Elevate Your Career — Beyond Just a Resume."</span>
+            <span>— Đồng hành cùng hành trình nghề nghiệp của bạn.</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs sm:gap-5 sm:text-sm">
             <button
               type="button"
-              onClick={() => handleCtaClick('footer_free_analysis')}
+              onClick={() => handleAnalysisCtaClick('footer_free_analysis')}
               className="hover:text-blue-600 transition-colors"
             >
               Phân tích CV miễn phí

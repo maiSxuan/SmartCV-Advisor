@@ -38,6 +38,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .db import MONGODB_DB, db
 from .services.analysis_service import DATABASE_ERRORS
 from .services.database_bootstrap import ensure_default_service_plans, ensure_mvp_collections
+from .services.email_service import is_email_delivery_configured
 from .services.gpt_service import OPENAI_IMAGE_MODEL, OPENAI_MODEL, is_gpt_configured
 
 # 1. Import các router ông vừa viết
@@ -129,6 +130,10 @@ async def health_check() -> dict[str, Any]:
     return {
         "status": "ok" if database["available"] and not database["bootstrap_error"] else "degraded",
         "database": database,
+        "email": {
+            "provider": "smtp",
+            "configured": is_email_delivery_configured(),
+        },
         "gpt": {
             "configured": is_gpt_configured(),
             "text_model": OPENAI_MODEL,

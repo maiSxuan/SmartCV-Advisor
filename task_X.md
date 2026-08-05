@@ -3,6 +3,7 @@ BƯỚC 2: CHỈNH LẠI LOGIC:
 
 BƯỚC 3: CHỈNH LẠI vòng đời của tài khoản (vòng đời giống cái gói của chatgpt)
 ví dụ khi người dùng đang là gói premium 30 ngày (ngày đăng kí là 3/8) thì phải đến ngày 3/9 mới hết hạn 30 ngày, tương tự gói 90 ngày cũng vậy. còn nếu đang là gói premium 30 ngày mà họ lại hủy gói, thì phải đúng 30 ngày sau kể từ ngày đăng kí thì mới về trạng thái gói free. Khi về gói free thì lịch sử vẫn đầy đủ không bị giới hạn, và phải cấp lại 3 lượt phân tích khi họ bước vào chu kì vòng đời tài khoản free (gói free chỉ có 3 lượt phân tích cho 1 vòng đời tài khoản)
+
 - Quy ước cấu hình thời hạn: `DV_FREE.HanSuDung = -1` biểu thị không giới hạn thời hạn sử dụng; Premium 30/90 vẫn dùng lần lượt 30/90 để tính 1/3 tháng lịch.
 
 BƯỚC 4: THỰC HIỆN THÊM CÁC USECASE SAU ĐỂ ĐẢM BẢO ĐỦ USECASE CHO MVP SẢN PHẨM
@@ -66,3 +67,22 @@ Chuyển Guest đến đăng ký/đăng nhập.
 Ghi nhận nguồn truy cập và thông điệp Marketing.
 Hiển thị thông tin an toàn dữ liệu.
 LƯU ý: cái nào hiện tại đang có rồi thì bỏ qua, không nên thêm hoặc xóa hoặc chỉnh bậy
+
+BƯỚC 6: CHỈNH SỬA CÁI LOGIC ĐANG BỊ SAI
+
+- Check đuôi email: nếu đuôi đăng nhập/ đăng kí của user không là phải gmail.com thì không cho đăng kí/đăng nhập --> chỉnh logic đăng kí/đăng nhập đúng logic bình thường.
+  - thực hiện xác thực tài khoản email khi đăng kí và quên mật khẩu lúc đăng nhập --> dùng Nodemailer:
+    AUTH_SMTP_HOST=smtp.gmail.com
+    AUTH_SMTP_PORT=465
+    AUTH_SMTP_USER=xuan1885322434@gmail.com
+    AUTH_SMTP_PASS=xxxxxxxxxxxxx
+- avt ở góc phải trên cùng phải link vs hồ sơ cá nhân
+- Chỉnh tiếng việt toàn bộ UI cho hợp lí
+- Chỉnh combobox nằm bên dưới tiêu chí
+- Bỏ “bạn có muốn phân tích lại không” ở phần gửi phản hồi đánh giá của user và đẩy cái phải hồi này dưới phần roadmap sau khi đã xem đánh giá cv, roadmap ở trên
+- Chỉnh điểm đánh giá thành sao (UI) kèm sub, ví dụ 5 sao là cực kì hài lòng, 4: hài lòng, 3: bình thường, 2: tệ, 1: rất tệ
+- thêm footer các page (user free, premium, landing page)
+- Khi nhấn nút "Phân tích CV ngay" ở landing page mà còn trong phiên đăng nhập của user (free/premium) thì nên chuyển về trang user để phân tích. còn nếu user chưa đăng nhập gì hết thì khi nhấn "Phân tích CV ngay" thì chuyển về trang đăng kí
+- nên tăng thời gian phiên đăng nhập của user, admin lên 1 ngày
+- cho phép user xóa CV của họ không cần phải yêu câù admin duyệt
+- amdin không được có chức năng chỉnh sửa thông tin của user

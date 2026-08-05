@@ -1,8 +1,8 @@
 export default function AnalysisSummary() {
   return (
     <div>
-      <h2>Analysis Summary Component Placeholder</h2>
-      <p>Component tóm tắt phân tích: để thành viên khác implement hiển thị kết quả.</p>
+      <h2>Thành phần tóm tắt kết quả phân tích</h2>
+      <p>Khu vực tóm tắt kết quả phân tích đang được hoàn thiện.</p>
     </div>
   );
 }

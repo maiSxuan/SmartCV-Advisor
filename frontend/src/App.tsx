@@ -18,9 +18,11 @@ import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import LoginPage from './pages/LoginPage';
 import UploadCvPage from './pages/UploadCvPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import DataPolicyPage from './pages/DataPolicyPage';
 import GeneralInfoPage from './pages/GeneralInfoPage';
+import { formatPlanExpiry } from './data/plans';
 import { apiService, clearAuthSession, getStoredAuthSession, getStoredAuthUser } from './services/api';
 
 const navigationItems = [
@@ -80,15 +82,25 @@ function AppShell() {
   const navigate = useNavigate();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [quota, setQuota] = useState<{ remaining: number | null; limit: number | null; unlimited: boolean; current_plan_id?: string; expiry?: string | null } | null>(null);
+  const [quota, setQuota] = useState<{
+    remaining: number | null;
+    limit: number | null;
+    unlimited: boolean;
+    current_plan_id?: string;
+    expires_at?: string | null;
+  } | null>(null);
   const storedUser = getStoredAuthUser();
+  const hasStoredUser = Boolean(storedUser);
   const displayName = storedUser?.full_name ?? 'Người dùng';
   const isPremium = quota?.unlimited === true;
   const displayPlan = isPremium ? 'Gói Premium' : 'Gói Free';
+  const premiumExpiryLabel = formatPlanExpiry(quota?.expires_at);
   const initial = (displayName.trim()[0] || 'T').toUpperCase();
   const isAnalysisFlow = location.pathname.startsWith('/upload') || location.pathname.startsWith('/analysis');
   const pageTitle = isAnalysisFlow
     ? 'Phân tích CV'
+    : location.pathname === '/history'
+      ? 'Lịch sử phân tích'
     : location.pathname === '/plans'
       ? 'Gói dịch vụ'
       : location.pathname === '/profile'
@@ -99,12 +111,12 @@ function AppShell() {
 
   // Refresh quota mỗi khi navigate sang trang mới
   useEffect(() => {
-    if (storedUser) {
+    if (hasStoredUser) {
       apiService.getQuota()
         .then(res => setQuota(res.data))
         .catch(console.error);
     }
-  }, [location.pathname]);
+  }, [hasStoredUser, location.pathname]);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -167,9 +179,11 @@ function AppShell() {
             </div>
           ) : (
             <div className="rounded-2xl border border-blue-500 bg-blue-600 p-4 text-sm text-white shadow-sm">
-              <p className="font-bold">Premium — Job Search Pass</p>
+              <p className="font-bold">Premium — Đồng hành tìm việc</p>
               <p className="mt-1 text-blue-100">
-                {quota?.current_plan_id === 'DV_PREMIUM_90' ? '90 ngày' : '30 ngày'}
+                {premiumExpiryLabel
+                  ? `Hạn sử dụng đến ${premiumExpiryLabel}`
+                  : (quota?.current_plan_id === 'DV_PREMIUM_90' ? 'Gói 90 ngày' : 'Gói 30 ngày')}
               </p>
             </div>
           )}
@@ -193,7 +207,7 @@ function AppShell() {
         </div>
       </aside>
 
-      <div className="lg:pl-72">
+      <div className="flex min-h-screen flex-col lg:pl-72">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-5 backdrop-blur">
           <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
             {/* <Link to="/" className="hover:text-blue-600">
@@ -202,27 +216,44 @@ function AppShell() {
             {/* <span>/</span> */}
             <span className="text-slate-700">{pageTitle}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-blue-100 font-bold text-blue-600">{initial}</span>
-          </div>
+          <Link
+            to="/profile"
+            aria-label="Mở hồ sơ cá nhân"
+            title="Hồ sơ cá nhân"
+            className="grid h-10 w-10 place-items-center rounded-full bg-blue-100 font-bold text-blue-600 transition hover:bg-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+          >
+            {initial}
+          </Link>
         </header>
 
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/upload" element={<UploadCvPage />} />
-          <Route path="/analysis/:id" element={<AnalysisResultPage />} />
-          <Route path="/plans" element={<PlansPage />} />
-          <Route path="/guide" element={<GuidePage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/guide" element={<GuidePage />} />
-          <Route path="/general-info" element={<GeneralInfoPage />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-          <Route path="/data-policy" element={<DataPolicyPage />} />
-          <Route path="/privacy" element={<PrivacyPolicyPage />} />
-          <Route path="/terms" element={<DataPolicyPage />} />
-          <Route path="*" element={<UploadCvPage />} />
-        </Routes>
+        <div className="flex-1">
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/upload" element={<UploadCvPage />} />
+            <Route path="/analysis/:id" element={<AnalysisResultPage />} />
+            <Route path="/plans" element={<PlansPage />} />
+            <Route path="/guide" element={<GuidePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/general-info" element={<GeneralInfoPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/data-policy" element={<DataPolicyPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<DataPolicyPage />} />
+            <Route path="*" element={<UploadCvPage />} />
+          </Routes>
+        </div>
+
+        <footer className="border-t border-slate-200 bg-white px-6 py-6 text-sm text-slate-500">
+          <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
+            <p>© {new Date().getFullYear()} SmartCV Advisor. Đồng hành cùng hành trình nghề nghiệp của bạn.</p>
+            <nav aria-label="Liên kết cuối trang" className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              <Link className="transition hover:text-blue-600" to="/guide">Hướng dẫn</Link>
+              <Link className="transition hover:text-blue-600" to="/privacy-policy">Chính sách quyền riêng tư</Link>
+              <Link className="transition hover:text-blue-600" to="/data-policy">Điều khoản xử lý dữ liệu</Link>
+            </nav>
+          </div>
+        </footer>
       </div>
 
       {showLogoutDialog && (
@@ -264,6 +295,7 @@ function AppRoutes() {
     '/register',
     '/forgot-password',
     '/reset-password',
+    '/verify-email',
   ].includes(location.pathname);
   const isPolicyPath = [
     '/general-info',
@@ -293,6 +325,7 @@ function AppRoutes() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/general-info" element={<GeneralInfoPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/data-policy" element={<DataPolicyPage />} />

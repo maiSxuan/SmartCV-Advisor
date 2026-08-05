@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ChangeEvent, FormEvent } from 'react';
-import type { UserProfile } from '../types';
+import type { UploadedCvSummary, UserProfile } from '../types';
 import { apiService, getApiErrorMessage } from '../services/api';
 
 type ProfileTab = 'personal' | 'privacy';
@@ -29,8 +29,8 @@ export default function ProfilePage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [requestingDeletion, setRequestingDeletion] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [cvToDelete, setCvToDelete] = useState<UploadedCvSummary | null>(null);
+  const [deletingCvId, setDeletingCvId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -124,19 +124,20 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleDataDeletionRequest() {
-    setRequestingDeletion(true);
+  async function handleDeleteCv() {
+    if (!cvToDelete || deletingCvId) return;
+    setDeletingCvId(cvToDelete.cv_id);
     setStatusMessage('');
     setErrorMessage('');
     try {
-      const result = await apiService.requestDataDeletion({ scope: 'cv_data', reason: 'Người dùng yêu cầu từ màn hình hồ sơ.' });
+      const result = await apiService.deleteCv(cvToDelete.cv_id);
       setStatusMessage(result.meta.message);
-      setShowDeleteDialog(false);
+      setCvToDelete(null);
       await loadProfile();
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error));
     } finally {
-      setRequestingDeletion(false);
+      setDeletingCvId(null);
     }
   }
 
@@ -252,7 +253,7 @@ export default function ProfilePage() {
                   <input
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:text-slate-500"
                     disabled={!editing}
-                    placeholder="Frontend Developer"
+                    placeholder="Lập trình viên Frontend"
                     value={form.targetRole}
                     onChange={(event) => setForm((current) => ({ ...current, targetRole: event.target.value }))}
                   />
@@ -266,10 +267,10 @@ export default function ProfilePage() {
                     onChange={(event) => setForm((current) => ({ ...current, currentLevel: event.target.value }))}
                   >
                     <option value="">Chưa chọn</option>
-                    <option>Student</option>
-                    <option>Fresher</option>
-                    <option>Junior</option>
-                    <option>Mid-level</option>
+                    <option value="Student">Sinh viên</option>
+                    <option value="Fresher">Mới bắt đầu</option>
+                    <option value="Junior">Cấp độ cơ bản</option>
+                    <option value="Mid-level">Cấp độ trung cấp</option>
                   </select>
                 </label>
                 <label className="block">
@@ -352,55 +353,69 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 profile.uploaded_cvs.map((cv) => (
-                  <div key={cv.cv_id} className="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4">
-                    <p className="font-bold text-slate-800">{cv.filename}</p>
-                    <p className="mt-1 text-sm text-slate-400">
-                      {formatDate(cv.uploaded_at)} · {cv.target_role_name ?? cv.target_role_id ?? 'Chưa chọn vị trí'}
-                    </p>
+                  <div key={cv.cv_id} className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-slate-800" title={cv.filename}>{cv.filename}</p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {formatDate(cv.uploaded_at)} · {cv.target_role_name ?? cv.target_role_id ?? 'Chưa chọn vị trí'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={deletingCvId === cv.cv_id}
+                      onClick={() => {
+                        setStatusMessage('');
+                        setErrorMessage('');
+                        setCvToDelete(cv);
+                      }}
+                      className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-red-200 px-4 text-sm font-bold text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Xóa CV
+                    </button>
                   </div>
                 ))
               )}
             </div>
 
-            {profile.data_deletion_requests.length > 0 && (
-              <div className="mt-5 rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-700">
-                Yêu cầu gần nhất: {profile.data_deletion_requests[0].status} · {formatDate(profile.data_deletion_requests[0].requested_at)}
-              </div>
-            )}
-
-            <button
-              className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl border border-red-200 px-5 font-bold text-red-600 transition hover:bg-red-50"
-              type="button"
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              Xóa dữ liệu CV
-            </button>
           </div>
         )}
       </section>
 
-      {showDeleteDialog && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/35 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-            <h2 className="text-xl font-bold text-slate-900">Xác nhận yêu cầu xóa dữ liệu</h2>
-            <p className="mt-3 leading-6 text-slate-500">
-              Hệ thống sẽ ghi nhận yêu cầu xóa dữ liệu CV của bạn để xử lý theo chính sách quyền riêng tư.
+      {cvToDelete && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/40 px-4" role="presentation">
+          <div
+            aria-labelledby="profile-delete-cv-title"
+            aria-describedby="profile-delete-cv-description"
+            aria-modal="true"
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+            role="dialog"
+          >
+            <h2 id="profile-delete-cv-title" className="text-xl font-bold text-slate-900">Xóa CV này?</h2>
+            <p id="profile-delete-cv-description" className="mt-3 leading-6 text-slate-500">
+              CV <strong className="break-all text-slate-700">{cvToDelete.filename}</strong> cùng kết quả phân tích,
+              gợi ý và phản hồi liên quan sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.
             </p>
+            {errorMessage && (
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700" role="alert">
+                {errorMessage}
+              </div>
+            )}
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
                 className="h-12 rounded-2xl border border-slate-200 font-semibold text-slate-600 hover:border-slate-300"
+                disabled={Boolean(deletingCvId)}
                 type="button"
-                onClick={() => setShowDeleteDialog(false)}
+                onClick={() => setCvToDelete(null)}
               >
-                Hủy
+                Giữ lại
               </button>
               <button
                 className="h-12 rounded-2xl bg-red-600 font-bold text-white hover:bg-red-700 disabled:bg-red-300"
-                disabled={requestingDeletion}
+                disabled={Boolean(deletingCvId)}
                 type="button"
-                onClick={handleDataDeletionRequest}
+                onClick={() => void handleDeleteCv()}
               >
-                {requestingDeletion ? 'Đang gửi...' : 'Xác nhận'}
+                {deletingCvId ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
               </button>
             </div>
           </div>

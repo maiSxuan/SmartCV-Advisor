@@ -128,6 +128,8 @@ async def get_my_quota(user: dict[str, str] = Depends(get_current_user)) -> dict
                 "limit": None if is_unlimited else limit,
                 "remaining": remaining,
                 "label": label,
+                "auto_renew": state.get("auto_renew", False),
+                "expires_at": state["expires_at"].isoformat() if state.get("expires_at") else None,
             },
             "error": None,
         }
@@ -141,6 +143,8 @@ async def get_my_quota(user: dict[str, str] = Depends(get_current_user)) -> dict
                 "limit": 3,
                 "remaining": 3,
                 "label": "3/3 lượt còn lại",
+                "auto_renew": False,
+                "expires_at": None,
             },
             "error": None,
         }
@@ -275,7 +279,7 @@ async def renew_plan(
     }
 
 
-@router.post("/me/cancel-plan", summary="Hủy tự động gia hạn gói Premium")
+@router.post("/me/cancel-plan", summary="Hủy gói Premium")
 async def cancel_plan(
     user: dict[str, str] = Depends(get_customer_user),
 ) -> dict[str, Any]:
@@ -304,6 +308,6 @@ async def cancel_plan(
 
     return {
         "data": {"account_type": "premium", "expires_at": usage_doc["HanSuDung"].isoformat(), "auto_renew": False},
-        "meta": {"message": "Đã hủy tự động gia hạn. Premium vẫn dùng được đến ngày hết hạn."},
+        "meta": {"message": "Đã hủy gói. Quyền lợi Premium vẫn dùng được đến ngày hết hạn."},
         "error": None,
     }

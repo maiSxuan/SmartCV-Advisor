@@ -6,9 +6,9 @@ import type { AdminCareerRole, AdminSkillConfig } from '../types';
 type SkillDraft = Pick<AdminSkillConfig, 'required_score' | 'weight' | 'importance' | 'criteria_description' | 'status' | 'skill_group'>;
 
 const importanceOptions = [
-  { value: 3, label: 'Core Skill' },
-  { value: 2, label: 'Important' },
-  { value: 1, label: 'Nice to have' },
+  { value: 3, label: 'Kỹ năng cốt lõi' },
+  { value: 2, label: 'Quan trọng' },
+  { value: 1, label: 'Nên có' },
   { value: 0, label: 'Không tính điểm' },
 ];
 
@@ -307,7 +307,7 @@ export default function AdminSkillScoresPage() {
             {!loading && skills.length === 0 && (
               <tr>
                 <td className="px-4 py-8 text-center text-slate-500" colSpan={8}>
-                  Role này chưa có kỹ năng nào.
+                  Vị trí này chưa có kỹ năng nào.
                 </td>
               </tr>
             )}

@@ -22,7 +22,7 @@ export const FREE_FEATURES = [
 ];
 
 export const FREE_LIMITATIONS = [
-  'Roadmap cải thiện sau đánh giá',
+  'Lộ trình cải thiện sau đánh giá',
   'Gợi ý chuyên sâu',
 ];
 
@@ -51,26 +51,28 @@ export const PREMIUM_PLANS: Record<PremiumCycle, {
 
 export const PREMIUM_FEATURES = [
   'Không giới hạn lượt phân tích CV',
-  'Điểm tổng quan và các tiêu chí đánh giá',
-  'Điểm chi tiết theo từng phần CV',
-  'Roadmap cải thiện sau mỗi lần đánh giá',
-  'Gợi ý cải thiện chi tiết và chuyên sâu',
+  'Lộ trình cải thiện sau mỗi lần đánh giá',
   'Xem toàn bộ lịch sử phân tích',
+  'Gợi ý cải thiện chi tiết và chuyên sâu',
 ];
 
-const PREMIUM_COMING_SOON = [
+export const PREMIUM_COMING_SOON = [
   'Danh sách lỗi chi tiết',
   'Câu mẫu viết lại theo STAR',
   'Sao chép nhanh từng câu mẫu',
   'Nội dung viết lại nâng cao',
+  'Điểm phù hợp với mô tả công việc',
+  'Trợ lý AI hỗ trợ chỉnh sửa CV',
+  'Tải xuống CV đã chỉnh sửa',
 ];
 
-export function getPremiumComingSoon(cycle: PremiumCycle): string[] {
-  const plan = PREMIUM_PLANS[cycle];
-  return [
-    ...PREMIUM_COMING_SOON,
-    `Matching Score với JD (${plan.matchingScoreLimit} lượt)`,
-    `AI Assistant hỗ trợ chỉnh sửa CV (${plan.aiAssistantLimit} lượt)`,
-    'Tải xuống CV đã chỉnh sửa',
-  ];
+export function getPremiumComingSoon(): string[] {
+  return [...PREMIUM_COMING_SOON];
+}
+
+export function formatPlanExpiry(expiresAt: string | null | undefined): string | null {
+  if (!expiresAt) return null;
+  const expiryDate = new Date(expiresAt);
+  if (Number.isNaN(expiryDate.getTime())) return null;
+  return expiryDate.toLocaleDateString('vi-VN');
 }

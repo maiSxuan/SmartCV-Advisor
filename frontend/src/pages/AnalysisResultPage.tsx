@@ -29,7 +29,6 @@ type FeedbackBooleanKey =
   | 'recommendation_specific'
   | 'useful'
   | 'inaccurate'
-  | 'want_reanalyze'
   | 'willing_to_recommend';
 
 const feedbackQuestions: Array<{ key: FeedbackBooleanKey; label: string }> = [
@@ -37,9 +36,22 @@ const feedbackQuestions: Array<{ key: FeedbackBooleanKey; label: string }> = [
   { key: 'recommendation_specific', label: 'Gợi ý có đủ cụ thể không?' },
   { key: 'useful', label: 'Kết quả có hữu ích không?' },
   { key: 'inaccurate', label: 'Có lỗi hoặc gợi ý nào chưa chính xác?' },
-  { key: 'want_reanalyze', label: 'Bạn có muốn phân tích lại không?' },
   { key: 'willing_to_recommend', label: 'Bạn có sẵn sàng giới thiệu sản phẩm không?' },
 ];
+
+const ratingOptions = [
+  { value: 1, label: 'Rất tệ' },
+  { value: 2, label: 'Tệ' },
+  { value: 3, label: 'Bình thường' },
+  { value: 4, label: 'Hài lòng' },
+  { value: 5, label: 'Cực kỳ hài lòng' },
+];
+
+function getSectionLabel(section: string) {
+  return sectionScoreGuides.find((guide) => guide.section === section)?.label
+    ?? tabs.find((tab) => tab.key === section)?.label
+    ?? section;
+}
 
 function createInitialFeedbackForm() {
   return {
@@ -179,7 +191,7 @@ function phaseSkillGroups(phase: RoadmapPhase, index: number) {
     ['RAG Systems', 'Model Serving'],
     ['CI/CD Pipelines', 'Cloud Platforms'],
   ];
-  const groupTitles = fallbackGroups[index] ?? ['Skill Focus', 'Practice Focus'];
+  const groupTitles = fallbackGroups[index] ?? ['Kỹ năng trọng tâm', 'Thực hành trọng tâm'];
   const skills = phase.skills.length ? phase.skills : [];
   if (!skills.length) return [];
   const splitAt = Math.ceil(skills.length / Math.min(2, skills.length));
@@ -282,9 +294,9 @@ const roadmapSkillTopicLibrary: { matches: string[]; topics: string[] }[] = [
     matches: ['generative ai', 'llm', 'openai', 'gemini', 'claude'],
     topics: [
       'Khái niệm LLM, token, context window và hallucination.',
-      'Prompt pattern: role, constraint, examples và output format.',
+      'Mẫu câu lệnh gồm vai trò, ràng buộc, ví dụ và định dạng đầu ra.',
       'Gọi API, quản lý key, retry, streaming và xử lý lỗi.',
-      'Function calling/tool calling và structured output.',
+      'Gọi hàm, gọi công cụ và tạo đầu ra có cấu trúc.',
       'Đánh giá chất lượng response bằng test case cố định.',
       'Tạo mini app tích hợp LLM có logging và guardrail cơ bản.',
     ],
@@ -296,7 +308,7 @@ const roadmapSkillTopicLibrary: { matches: string[]; topics: string[] }[] = [
       'Few-shot examples và cách kiểm soát tone/độ dài.',
       'Prompt cho extraction, classification, rewrite và evaluation.',
       'Thiết kế prompt test set để so sánh nhiều phiên bản.',
-      'Kết hợp prompt với JSON schema hoặc structured output.',
+      'Kết hợp câu lệnh với JSON schema hoặc đầu ra có cấu trúc.',
     ],
   },
   {
@@ -317,7 +329,7 @@ const roadmapSkillTopicLibrary: { matches: string[]; topics: string[] }[] = [
       'Chain/workflow cơ bản cho RAG hoặc agent.',
       'Memory/state, tool calling và error handling.',
       'Evaluation, tracing và cách debug prompt/context.',
-      'Đóng gói thành demo có README và ví dụ input/output.',
+      'Đóng gói thành bản minh họa có README và ví dụ đầu vào, đầu ra.',
     ],
   },
   {
@@ -457,8 +469,8 @@ function fallbackSkillTopics(skill: string) {
   return [
     `Nắm khái niệm cốt lõi và thuật ngữ chính của ${skill}.`,
     `Hoàn thành 2-3 bài tập nhỏ để hiểu quy trình dùng ${skill}.`,
-    `Áp dụng ${skill} vào một mini project phù hợp role mục tiêu.`,
-    `Ghi lại output, lỗi thường gặp và cách xử lý để đưa vào CV.`,
+    `Áp dụng ${skill} vào một dự án nhỏ phù hợp với vị trí mục tiêu.`,
+    `Ghi lại kết quả đầu ra, lỗi thường gặp và cách xử lý để đưa vào CV.`,
   ];
 }
 
@@ -493,7 +505,7 @@ function SectionScoreBar({
       onClick={() => onSelect(item.section)}
     >
       <div className="mb-2 flex items-center justify-between text-sm">
-        <span className="font-medium text-slate-600">{item.section}</span>
+        <span className="font-medium text-slate-600">{getSectionLabel(item.section)}</span>
         <span className={`font-bold ${scoreTextColor(percentage)}`}>
           {item.score}/{item.max_score}
         </span>
@@ -570,7 +582,7 @@ function SectionSubScorePanel({ item }: { item: SectionScore }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-500">Điểm thành phần</p>
-          <h3 className="mt-1 text-base font-extrabold text-blue-700">{item.section}</h3>
+          <h3 className="mt-1 text-base font-extrabold text-blue-700">{getSectionLabel(item.section)}</h3>
         </div>
         <span className="text-sm font-extrabold text-blue-700">
           {formatScoreValue(item.score)}/{formatScoreValue(item.max_score)}
@@ -600,7 +612,7 @@ function SectionSubScorePanel({ item }: { item: SectionScore }) {
         </div>
       ) : (
         <p className="mt-4 rounded-xl bg-white px-4 py-3 text-sm leading-6 text-slate-500 shadow-sm">
-          Chưa có điểm thành phần cho section này.
+          Chưa có điểm thành phần cho phần CV này.
         </p>
       )}
     </div>
@@ -646,8 +658,8 @@ function RoadmapTree({ phases, roleName }: { phases: RoadmapPhase[]; roleName?: 
     >
       <div className="mx-auto max-w-5xl">
         <div className="border-l-4 border-blue-600 pl-4">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-600">Learning Path</p>
-          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">Roadmap Recommendation</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-600">Lộ trình học tập</p>
+          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">Lộ trình cải thiện đề xuất</h2>
           <p className="mt-3 max-w-2xl text-base leading-7 text-slate-500">
             Lộ trình học tập được cá nhân hóa cho vai trò {roleName ?? 'mục tiêu'} — theo từng giai đoạn, từ nền tảng
             đến triển khai thực tế.
@@ -792,7 +804,7 @@ function RoadmapTree({ phases, roleName }: { phases: RoadmapPhase[]; roleName?: 
 
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${badge.badge}`}>{badge.label}</span>
-                          <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.18em] text-blue-600">Output</p>
+                          <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.18em] text-blue-600">Kết quả đầu ra</p>
                           {phase.output && <p className="mt-3 text-sm font-bold leading-6 text-blue-700">{phase.output}</p>}
                           {phase.reason && (
                             <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-500">{phase.reason}</p>
@@ -809,7 +821,7 @@ function RoadmapTree({ phases, roleName }: { phases: RoadmapPhase[]; roleName?: 
 
         <div className="mt-10 rounded-xl border border-blue-100 bg-white px-5 py-4 text-sm leading-6 text-slate-500 shadow-sm">
           <span className="mr-3 inline-grid h-5 w-5 place-items-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">i</span>
-          Hoàn thành từng giai đoạn theo thứ tự. Mỗi phase đều có output cụ thể để bạn có thể kiểm chứng kết quả học tập
+          Hoàn thành từng giai đoạn theo thứ tự. Mỗi giai đoạn đều có kết quả đầu ra cụ thể để bạn kiểm chứng tiến độ học tập
           của mình trước khi tiếp tục.
         </div>
       </div>
@@ -1062,8 +1074,8 @@ export default function AnalysisResultPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-950">Điểm 6 section</h2>
-          <p className="mt-2 text-sm text-slate-500">Tổng điểm được tính bằng tổng điểm các section, tối đa 100.</p>
+          <h2 className="text-xl font-bold text-slate-950">Điểm 6 phần CV</h2>
+          <p className="mt-2 text-sm text-slate-500">Tổng điểm được tính từ 6 phần của CV, tối đa 100 điểm.</p>
           <div className="mt-6 space-y-3">
             {result.section_scores.map((score) => (
               <SectionScoreBar
@@ -1079,108 +1091,6 @@ export default function AnalysisResultPage() {
       </section>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className={`border-b border-slate-200 p-6 ${isAdminViewer ? 'hidden' : ''}`}>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Phản hồi sau phân tích</h2>
-              <p className="text-sm text-slate-500">
-                {canSubmitFeedback
-                  ? hasSubmittedFeedback
-                    ? 'Phản hồi của bạn đã được ghi nhận. Bạn có thể gửi thêm phản hồi nếu cần.'
-                    : 'Mời bạn dành một phút đánh giá kết quả vừa nhận được.'
-                  : 'Hiện tại bạn chưa thể gửi phản hồi cho kết quả này.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={feedbackEligibilityLoading || !canSubmitFeedback}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              onClick={handleFeedbackToggle}
-            >
-              {feedbackEligibilityLoading
-                ? 'Đang kiểm tra...'
-                : !canSubmitFeedback
-                  ? 'Không thể gửi'
-                  : feedbackOpen
-                    ? 'Đóng biểu mẫu'
-                    : hasSubmittedFeedback ? 'Gửi thêm phản hồi' : 'Gửi phản hồi'}
-            </button>
-          </div>
-          {feedbackMessage && (
-            <p className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
-              feedbackMessageTone === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-red-200 bg-red-50 text-red-700'
-            }`}>
-              {feedbackMessage}
-            </p>
-          )}
-          {!feedbackEligibilityLoading && !canSubmitFeedback && !feedbackMessage && feedbackEligibility?.reason && (
-            <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              {feedbackEligibility.reason}
-            </p>
-          )}
-          {feedbackOpen && canSubmitFeedback && (
-            <div className="mt-4 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block text-sm font-medium text-slate-700">
-                  Loại phản hồi
-                  <select
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    value={feedbackForm.feedback_type}
-                    onChange={(event) => setFeedbackForm((prev) => ({ ...prev, feedback_type: event.target.value as FeedbackType }))}
-                  >
-                    {feedbackTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
-                </label>
-                <label className="block text-sm font-medium text-slate-700">
-                  Đánh giá tổng thể (1-5)
-                  <select
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    value={feedbackForm.rating}
-                    onChange={(event) => setFeedbackForm((prev) => ({ ...prev, rating: Number(event.target.value) }))}
-                  >
-                    {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}
-                  </select>
-                </label>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {feedbackQuestions.map((question) => (
-                  <label key={question.key} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
-                    <span className="block min-h-10 font-medium">{question.label}</span>
-                    <select
-                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
-                      value={String(feedbackForm[question.key])}
-                      onChange={(event) => setFeedbackForm((prev) => ({
-                        ...prev,
-                        [question.key]: event.target.value === 'true',
-                      }))}
-                    >
-                      <option value="true">Có</option>
-                      <option value="false">Không</option>
-                    </select>
-                  </label>
-                ))}
-              </div>
-              <label className="block text-sm font-medium text-slate-700">
-                Bình luận
-                <textarea
-                  className="mt-2 min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  value={feedbackForm.comment}
-                  onChange={(event) => setFeedbackForm((prev) => ({ ...prev, comment: event.target.value }))}
-                />
-              </label>
-              <div className="flex flex-wrap gap-3">
-                <button type="button" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-300" onClick={() => void handleFeedbackSubmit()} disabled={feedbackSubmitting || !canSubmitFeedback}>
-                  {feedbackSubmitting ? 'Đang gửi...' : 'Gửi phản hồi'}
-                </button>
-                <button type="button" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600" onClick={() => setFeedbackOpen(false)}>
-                  Hủy
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
         <div className="flex gap-1 overflow-x-auto border-b border-slate-200 px-5">
           {tabs.map((tab) => (
             <button
@@ -1227,14 +1137,14 @@ export default function AnalysisResultPage() {
               </div>
 
               <div>
-                <h2 className="text-xl font-bold text-slate-950">Technical Skill Assessment</h2>
+                <h2 className="text-xl font-bold text-slate-950">Đánh giá kỹ năng chuyên môn</h2>
                 <div className="mt-4 grid gap-4 lg:grid-cols-3">
                   <SkillList title="Bắt buộc đã có" items={result.technical_skill_assessment.matched_required_skills} tone="green" />
                   <SkillList title="Bắt buộc còn thiếu" items={result.technical_skill_assessment.missing_required_skills} tone="amber" />
                   <SkillList title="Quan trọng đã có" items={result.technical_skill_assessment.matched_important_skills} tone="blue" />
                   <SkillList title="Quan trọng còn thiếu" items={result.technical_skill_assessment.missing_important_skills} tone="amber" />
-                  <SkillList title="Nice-to-have đã có" items={result.technical_skill_assessment.matched_nice_to_have_skills} tone="slate" />
-                  <SkillList title="Nice-to-have còn thiếu" items={result.technical_skill_assessment.missing_nice_to_have_skills} tone="slate" />
+                  <SkillList title="Kỹ năng bổ trợ đã có" items={result.technical_skill_assessment.matched_nice_to_have_skills} tone="slate" />
+                  <SkillList title="Kỹ năng bổ trợ còn thiếu" items={result.technical_skill_assessment.missing_nice_to_have_skills} tone="slate" />
                 </div>
               </div>
 
@@ -1247,7 +1157,7 @@ export default function AnalysisResultPage() {
           {activeTab !== 'overview' && activeSectionScore && (
             <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="font-bold text-blue-700">{activeSectionScore.section}</h2>
+                <h2 className="font-bold text-blue-700">{getSectionLabel(activeSectionScore.section)}</h2>
                 <span className="font-bold text-blue-700">
                   {activeSectionScore.score}/{activeSectionScore.max_score}
                 </span>
@@ -1291,6 +1201,142 @@ export default function AnalysisResultPage() {
           </div>
         </div>
       </section>
+
+      {!isAdminViewer && (
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="feedback-heading">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 id="feedback-heading" className="text-lg font-semibold text-slate-900">Phản hồi sau phân tích</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {canSubmitFeedback
+                  ? hasSubmittedFeedback
+                    ? 'Phản hồi của bạn đã được ghi nhận. Bạn có thể gửi thêm phản hồi nếu cần.'
+                    : 'Sau khi xem kết quả và lộ trình cải thiện, mời bạn dành một phút chia sẻ trải nghiệm.'
+                  : 'Hiện tại bạn chưa thể gửi phản hồi cho kết quả này.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={feedbackEligibilityLoading || !canSubmitFeedback}
+              className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              onClick={handleFeedbackToggle}
+              aria-expanded={feedbackOpen}
+            >
+              {feedbackEligibilityLoading
+                ? 'Đang kiểm tra...'
+                : !canSubmitFeedback
+                  ? 'Không thể gửi'
+                  : feedbackOpen
+                    ? 'Đóng biểu mẫu'
+                    : hasSubmittedFeedback ? 'Gửi thêm phản hồi' : 'Gửi phản hồi'}
+            </button>
+          </div>
+
+          {feedbackMessage && (
+            <p className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+              feedbackMessageTone === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-red-200 bg-red-50 text-red-700'
+            }`} role={feedbackMessageTone === 'error' ? 'alert' : 'status'}>
+              {feedbackMessage}
+            </p>
+          )}
+
+          {!feedbackEligibilityLoading && !canSubmitFeedback && !feedbackMessage && feedbackEligibility?.reason && (
+            <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              {feedbackEligibility.reason}
+            </p>
+          )}
+
+          {feedbackOpen && canSubmitFeedback && (
+            <div className="mt-5 space-y-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+              <label className="block text-sm font-medium text-slate-700">
+                <span className="block">Loại phản hồi</span>
+                <select
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  value={feedbackForm.feedback_type}
+                  onChange={(event) => setFeedbackForm((prev) => ({ ...prev, feedback_type: event.target.value as FeedbackType }))}
+                >
+                  {feedbackTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+
+              <fieldset>
+                <legend className="text-sm font-medium text-slate-700">Mức độ hài lòng tổng thể</legend>
+                <div className="mt-3 flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Đánh giá mức độ hài lòng từ 1 đến 5 sao">
+                  {ratingOptions.map((option) => (
+                    <label
+                      key={option.value}
+                      title={`${option.value} sao — ${option.label}`}
+                      className="cursor-pointer rounded-lg p-1 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+                    >
+                      <input
+                        className="sr-only"
+                        type="radio"
+                        name="feedback-rating"
+                        value={option.value}
+                        checked={feedbackForm.rating === option.value}
+                        onChange={() => setFeedbackForm((prev) => ({ ...prev, rating: option.value }))}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className={`text-4xl leading-none transition ${
+                          option.value <= feedbackForm.rating ? 'text-amber-400' : 'text-slate-300 hover:text-amber-300'
+                        }`}
+                      >
+                        ★
+                      </span>
+                      <span className="sr-only">{option.value} sao — {option.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-sm font-semibold text-slate-700" aria-live="polite">
+                  {feedbackForm.rating} sao — {ratingOptions.find((option) => option.value === feedbackForm.rating)?.label}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">1 sao: Rất tệ · 2 sao: Tệ · 3 sao: Bình thường · 4 sao: Hài lòng · 5 sao: Cực kỳ hài lòng</p>
+              </fieldset>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {feedbackQuestions.map((question) => (
+                  <label key={question.key} className="flex flex-col rounded-xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-700">
+                    <span className="font-medium">{question.label}</span>
+                    <select
+                      className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      value={String(feedbackForm[question.key])}
+                      onChange={(event) => setFeedbackForm((prev) => ({
+                        ...prev,
+                        [question.key]: event.target.value === 'true',
+                      }))}
+                    >
+                      <option value="true">Có</option>
+                      <option value="false">Không</option>
+                    </select>
+                  </label>
+                ))}
+              </div>
+
+              <label className="block text-sm font-medium text-slate-700">
+                <span className="block">Bình luận</span>
+                <textarea
+                  className="mt-2 min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  placeholder="Chia sẻ thêm điều bạn hài lòng hoặc cần chúng tôi cải thiện..."
+                  value={feedbackForm.comment}
+                  onChange={(event) => setFeedbackForm((prev) => ({ ...prev, comment: event.target.value }))}
+                />
+              </label>
+
+              <div className="flex flex-wrap gap-3">
+                <button type="button" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:bg-slate-300" onClick={() => void handleFeedbackSubmit()} disabled={feedbackSubmitting || !canSubmitFeedback}>
+                  {feedbackSubmitting ? 'Đang gửi...' : 'Gửi phản hồi'}
+                </button>
+                <button type="button" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100" onClick={() => setFeedbackOpen(false)}>
+                  Hủy
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <p className="mt-6 text-sm leading-6 text-slate-500">
         Điểm số là đánh giá hỗ trợ cải thiện CV, không phải kết luận tuyển dụng. Hãy chỉ bổ sung thông tin đúng với trải

@@ -252,6 +252,7 @@ export interface AnalysisResult {
 
 export interface HistoryItem {
   analysis_id: string;
+  cv_id: string;
   cv_name: string;
   overall_score: number;
   classification?: string;

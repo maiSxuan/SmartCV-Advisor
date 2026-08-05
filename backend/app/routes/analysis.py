@@ -58,6 +58,7 @@ async def get_analysis_history(
             "$project": {
                 "_id": 0,
                 "analysis_id": "$_id",
+                "cv_id": "$cv_info._id",
                 "cv_name": "$cv_info.TenFileGoc",
                 "overall_score": "$DiemTongQuan",
                 "classification": "$XepLoai",

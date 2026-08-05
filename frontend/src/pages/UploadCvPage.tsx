@@ -31,7 +31,7 @@ const freeResultItems = [
 const premiumResultItems = [
   'Điểm tổng quan và các tiêu chí đánh giá',
   'Điểm chi tiết theo từng phần CV',
-  'Roadmap cải thiện sau mỗi lần đánh giá',
+  'Lộ trình cải thiện sau mỗi lần đánh giá',
   'Gợi ý cải thiện chi tiết và chuyên sâu',
 ];
 
@@ -58,7 +58,7 @@ function validateLocalFile(file: File) {
     return 'Hệ thống chỉ hỗ trợ PDF, DOC, DOCX hoặc ảnh PNG/JPG/JPEG/WEBP/BMP.';
   }
   if (file.size > MAX_FILE_SIZE) {
-    return 'Dung lượng file quá lớn. Giới hạn hiện tại là 5 MB.';
+    return 'Dung lượng tệp quá lớn. Giới hạn hiện tại là 5 MB.';
   }
   return '';
 }
@@ -267,7 +267,7 @@ export default function UploadCvPage() {
         {step === 'upload' && (
           <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
             <h1 className="text-2xl font-bold text-slate-950">Tải CV của bạn lên</h1>
-            <p className="mt-2 text-slate-500">PDF, DOC, DOCX hoặc ảnh PNG/JPG/WEBP — tối đa 5 MB</p>
+            <p className="mt-2 text-slate-500">PDF, DOC, DOCX hoặc ảnh PNG, JPG, WEBP, BMP — tối đa 5 MB</p>
 
             {quotaExceeded ? (
               <div className="mt-7 flex min-h-72 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50 px-6 text-center">
@@ -555,6 +555,10 @@ export default function UploadCvPage() {
             </div>
             <h1 className="mt-8 text-2xl font-bold text-slate-950">Đang phân tích CV của bạn</h1>
             <p className="mt-3 text-slate-500">Quá trình này thường mất dưới 30 giây.</p>
+            <div className="mx-auto mt-5 flex max-w-md items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm font-medium leading-6 text-amber-800">
+              <span aria-hidden="true" className="mt-0.5 text-base">⚠</span>
+              <p>Khi phân tích CV, vui lòng không tắt trình duyệt hoặc chuyển tab.</p>
+            </div>
             <div className="mx-auto mt-8 max-w-sm space-y-4 text-left">
               {[
                 { label: 'Đang đọc nội dung CV...', done: progress >= 20 },

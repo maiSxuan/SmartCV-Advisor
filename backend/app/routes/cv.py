@@ -16,7 +16,12 @@ from app.services.analysis_service import (
     list_career_roles,
     resolve_quota_state,
 )
-from app.services.cv_service import CONSENT_POLICY_VERSION, build_cv_document, public_cv_metadata
+from app.services.cv_service import (
+    CONSENT_POLICY_VERSION,
+    build_cv_document,
+    delete_owned_cv,
+    public_cv_metadata,
+)
 from app.services.product_analytics_service import record_product_event_safely
 
 
@@ -118,6 +123,19 @@ async def get_cv_metadata(cv_id: str, user: dict[str, str] = Depends(get_current
             detail={"code": "CV_NOT_FOUND", "message": "Không tìm thấy CV thuộc tài khoản hiện tại."},
         )
     return {"data": public_cv_metadata(cv), "error": None}
+
+
+@router.delete("/{cv_id}", summary="Xóa CV và dữ liệu phân tích liên quan")
+async def delete_cv(
+    cv_id: str,
+    user: dict[str, str] = Depends(get_current_user),
+) -> dict[str, Any]:
+    deleted = await delete_owned_cv(db, cv_id=cv_id, user_id=user["user_id"])
+    return {
+        "data": deleted,
+        "meta": {"message": "Đã xóa CV và dữ liệu phân tích liên quan."},
+        "error": None,
+    }
 
 
 @router.post("/{cv_id}/analyses", status_code=status.HTTP_201_CREATED, summary="UC-014: Phân tích và chấm điểm CV")

@@ -11,9 +11,39 @@ type UserFilters = {
   dateTo: string;
 };
 
-function formatDate(value: string | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('vi-VN');
+function formatDateTimeParts(value: string | null) {
+  if (!value) return null;
+  const dateTime = new Date(value);
+  if (Number.isNaN(dateTime.getTime())) return null;
+  return {
+    date: dateTime.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }),
+    time: dateTime.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }),
+  };
+}
+
+function DateTimeValue({ value, align = 'left' }: { value: string | null; align?: 'left' | 'right' }) {
+  const formatted = formatDateTimeParts(value);
+  if (!formatted) return <span>—</span>;
+  return (
+    <span
+      className={`inline-flex flex-col ${align === 'right' ? 'items-end text-right' : 'items-start text-left'}`}
+      title={`${formatted.date} ${formatted.time} (GMT+7)`}
+    >
+      <span className="font-medium text-slate-600">{formatted.date}</span>
+      <span className="mt-0.5 text-xs text-slate-400">{formatted.time} GMT+7</span>
+    </span>
+  );
 }
 
 function accountLabel(value: string) {
@@ -43,14 +73,14 @@ function StatusPill({ status }: { status: 'active' | 'locked' }) {
 
 function dateParam(value: string, endOfDay = false) {
   if (!value) return undefined;
-  return `${value}T${endOfDay ? '23:59:59' : '00:00:00'}Z`;
+  const vietnamTime = new Date(`${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+07:00`);
+  return vietnamTime.toISOString();
 }
 
 export default function AdminUsersPage() {
   const [filters, setFilters] = useState<UserFilters>({ search: '', accountType: 'all', status: 'all', dateFrom: '', dateTo: '' });
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUserDetail | null>(null);
-  const [editUser, setEditUser] = useState<AdminUserDetail | null>(null);
   const [lockUser, setLockUser] = useState<AdminUserDetail | null>(null);
   const [unlockUser, setUnlockUser] = useState<AdminUserDetail | null>(null);
   const [lockReason, setLockReason] = useState('');
@@ -61,17 +91,6 @@ export default function AdminUsersPage() {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [toast, setToast] = useState('');
-
-  const [editForm, setEditForm] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    address: '',
-    account_type: 'registered' as 'registered' | 'premium' | 'admin',
-    industry_interest: '',
-    target_role: '',
-    current_level: '',
-  });
 
   useEffect(() => {
     let active = true;
@@ -126,37 +145,6 @@ export default function AdminUsersPage() {
       setSelectedUser(result.data);
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error));
-    }
-  }
-
-  function openEdit(user: AdminUserDetail) {
-    setEditUser(user);
-    setEditForm({
-      full_name: user.full_name,
-      email: user.email,
-      phone: user.phone,
-      address: user.address,
-      account_type: user.account_type === 'premium' || user.account_type === 'admin' ? user.account_type : 'registered',
-      industry_interest: user.industry_interest,
-      target_role: user.target_role,
-      current_level: user.current_level,
-    });
-  }
-
-  async function saveUser() {
-    if (!editUser) return;
-    setSaving(true);
-    try {
-      const payload = editUser.role === 'admin' ? { full_name: editForm.full_name, email: editForm.email, phone: editForm.phone, address: editForm.address, account_type: 'admin' as const } : editForm;
-      const result = await apiService.updateAdminUser(editUser.user_id, payload);
-      setToast(result.meta.message);
-      setEditUser(null);
-      await reloadUsers();
-      await openDetail(editUser.user_id);
-    } catch (error) {
-      setErrorMessage(getApiErrorMessage(error));
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -215,9 +203,9 @@ export default function AdminUsersPage() {
             }}
           >
             <option value="all">Tất cả loại</option>
-            <option value="registered">Registered</option>
+            <option value="registered">Người dùng</option>
             <option value="premium">Premium</option>
-            <option value="admin">Admin</option>
+            <option value="admin">Quản trị viên</option>
           </select>
           <select
             className="h-11 rounded-xl border border-slate-200 px-4 text-sm text-slate-600 outline-none focus:border-blue-500"
@@ -234,6 +222,7 @@ export default function AdminUsersPage() {
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-[160px_160px]">
           <input
+            aria-label="Lọc từ ngày"
             className="h-10 rounded-xl border border-slate-200 px-4 text-sm outline-none focus:border-blue-500"
             type="date"
             value={filters.dateFrom}
@@ -243,6 +232,7 @@ export default function AdminUsersPage() {
             }}
           />
           <input
+            aria-label="Lọc đến ngày"
             className="h-10 rounded-xl border border-slate-200 px-4 text-sm outline-none focus:border-blue-500"
             type="date"
             value={filters.dateTo}
@@ -300,15 +290,15 @@ export default function AdminUsersPage() {
                   <td className="px-5 py-4">
                     <StatusPill status={user.status} />
                   </td>
-                  <td className="px-5 py-4 text-slate-500">{formatDate(user.registered_at)}</td>
-                  <td className="px-5 py-4 text-slate-500">{formatDate(user.last_login_at)}</td>
+                  <td className="px-5 py-4"><DateTimeValue value={user.registered_at} /></td>
+                  <td className="px-5 py-4"><DateTimeValue value={user.last_login_at} /></td>
                 </tr>
               ))}
           </tbody>
         </table>
         <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4 text-sm text-slate-500">
           <span>
-            Hiển thị {users.length}/{total} người dùng (tối đa 50/trang)
+            Hiển thị {users.length}/{total} người dùng (tối đa 20/trang)
           </span>
           <div className="flex gap-2">
             <button className="h-9 rounded-lg border border-slate-200 px-3 font-semibold disabled:text-slate-300" disabled={page === 1} type="button" onClick={() => setPage((current) => Math.max(1, current - 1))}>
@@ -349,11 +339,11 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-3">
                   <span className="text-slate-500">Ngày đăng ký</span>
-                  <strong>{formatDate(selectedUser.registered_at)}</strong>
+                  <strong><DateTimeValue value={selectedUser.registered_at} align="right" /></strong>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-3">
                   <span className="text-slate-500">Đăng nhập gần nhất</span>
-                  <strong>{formatDate(selectedUser.last_login_at)}</strong>
+                  <strong><DateTimeValue value={selectedUser.last_login_at} align="right" /></strong>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-3">
                   <span className="text-slate-500">Gói hiện tại</span>
@@ -367,9 +357,6 @@ export default function AdminUsersPage() {
               </div>
             </div>
             <div className="sticky bottom-0 space-y-3 border-t border-slate-100 bg-white p-6">
-              <button className="h-11 w-full rounded-xl border border-slate-200 font-semibold text-slate-700 hover:border-slate-300" type="button" onClick={() => openEdit(selectedUser)}>
-                Chỉnh sửa thông tin
-              </button>
               {selectedUser.status === 'locked' ? (
                 <button className="h-11 w-full rounded-xl border border-green-200 bg-green-50 font-bold text-green-700 hover:bg-green-100" type="button" onClick={() => setUnlockUser(selectedUser)}>
                   Mở khóa tài khoản
@@ -381,44 +368,6 @@ export default function AdminUsersPage() {
               )}
             </div>
           </aside>
-        </div>
-      )}
-
-      {editUser && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40 px-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-              <h2 className="text-xl font-bold">Chỉnh sửa thông tin</h2>
-              <button className="text-2xl text-slate-400 hover:text-slate-600" type="button" onClick={() => setEditUser(null)}>
-                ×
-              </button>
-            </div>
-            <div className="grid gap-4 px-6 py-5 sm:grid-cols-2">
-              <input className="h-11 rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500" placeholder="Họ và tên" value={editForm.full_name} onChange={(event) => setEditForm((current) => ({ ...current, full_name: event.target.value }))} />
-              <input className="h-11 rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500" placeholder="Email" type="email" value={editForm.email} onChange={(event) => setEditForm((current) => ({ ...current, email: event.target.value }))} />
-              <input className="h-11 rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500" placeholder="Số điện thoại" value={editForm.phone} onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))} />
-              <input className="h-11 rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500" placeholder="Địa chỉ" value={editForm.address} onChange={(event) => setEditForm((current) => ({ ...current, address: event.target.value }))} />
-              {editUser.role !== 'admin' && (
-                <>
-                  <select className="h-11 rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500" value={editForm.account_type} onChange={(event) => setEditForm((current) => ({ ...current, account_type: event.target.value as 'registered' | 'premium' | 'admin' }))}>
-                    <option value="registered">Registered</option>
-                    <option value="premium">Premium</option>
-                  </select>
-                  <input className="h-11 rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500" placeholder="Trình độ hiện tại" value={editForm.current_level} onChange={(event) => setEditForm((current) => ({ ...current, current_level: event.target.value }))} />
-                  <input className="h-11 rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500" placeholder="Ngành nghề quan tâm" value={editForm.industry_interest} onChange={(event) => setEditForm((current) => ({ ...current, industry_interest: event.target.value }))} />
-                  <input className="h-11 rounded-xl border border-slate-200 px-4 outline-none focus:border-blue-500" placeholder="Vị trí mục tiêu" value={editForm.target_role} onChange={(event) => setEditForm((current) => ({ ...current, target_role: event.target.value }))} />
-                </>
-              )}
-            </div>
-            <div className="grid gap-3 border-t border-slate-100 px-6 py-5 sm:grid-cols-2">
-              <button className="h-11 rounded-xl border border-slate-200 font-semibold text-slate-600" type="button" onClick={() => setEditUser(null)}>
-                Hủy
-              </button>
-              <button className="h-11 rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700 disabled:bg-blue-300" disabled={saving || !editForm.full_name.trim() || !editForm.email.trim()} type="button" onClick={saveUser}>
-                Lưu thay đổi
-              </button>
-            </div>
-          </div>
         </div>
       )}
 

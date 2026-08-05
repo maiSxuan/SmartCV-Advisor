@@ -68,7 +68,7 @@ python -m pip install --upgrade pip
 Cài dependency:
 
 ```powershell
-pip install fastapi "uvicorn[standard]" python-multipart python-dotenv openai pymupdf python-docx motor pymongo
+pip install -r requirements.txt
 ```
 
 Ảnh CV và PDF scan được đọc trực tiếp bằng GPT image model, nên không cần cài Tesseract hoặc Poppler.
@@ -89,14 +89,21 @@ MONGODB_CONNECT_TIMEOUT_MS=5000
 MONGODB_SOCKET_TIMEOUT_MS=10000
 CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174
 CORS_ALLOW_ORIGIN_REGEX=^http://(localhost|127\.0\.0\.1):517[0-9]$
-JWT_SECRET_KEY=change_me_for_local_dev
+JWT_SECRET_KEY=replace_with_a_random_secret_of_at_least_32_bytes
 JWT_ALGORITHM=HS256
-ACCESS_TOKEN_MINUTES=30
+ACCESS_TOKEN_MINUTES=1440
 REFRESH_TOKEN_DAYS=7
 REMEMBER_ME_REFRESH_DAYS=30
 AUTH_MAX_FAILED_LOGIN_ATTEMPTS=5
 AUTH_TEMP_LOCK_MINUTES=15
-EMAIL_TOKEN_MINUTES=30
+FRONTEND_URL=http://localhost:5173
+AUTH_SMTP_HOST=smtp.gmail.com
+AUTH_SMTP_PORT=465
+AUTH_SMTP_USER=your-sender@gmail.com
+AUTH_SMTP_PASS=your-google-app-password
+AUTH_SMTP_USE_SSL=true
+AUTH_SMTP_FROM=your-sender@gmail.com
+EMAIL_VERIFICATION_TOKEN_MINUTES=30
 PASSWORD_RESET_TOKEN_MINUTES=30
 OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
@@ -137,7 +144,9 @@ Tài khoản demo sau khi seed:
 | `hoangnam@example.com` | `Demo1234` | Premium |
 | `admin@smartcv.vn` | `Demo1234` | Admin |
 
-Luồng đăng ký hiện tại bỏ qua xác thực email: tài khoản mới được kích hoạt ngay và có thể đăng nhập sau khi đăng ký thành công.
+Luồng đăng ký gửi liên kết xác thực qua SMTP. Tài khoản mới chỉ có thể đăng nhập sau khi người dùng mở liên kết và xác thực email. Luồng quên mật khẩu cũng gửi liên kết một lần qua SMTP; token chỉ được lưu dưới dạng SHA-256 và không được trả về API.
+
+Với Gmail, `AUTH_SMTP_PASS` phải là **App Password** của tài khoản gửi, không phải mật khẩu Gmail thông thường. Không commit file `.env` hoặc App Password lên Git.
 
 ## 3. Chạy backend
 
@@ -170,6 +179,8 @@ API chính cho luồng CV:
 | Method | Endpoint | Use case |
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/register` | UC-008 đăng ký |
+| `POST` | `/api/v1/auth/verify-email` | Xác thực email đăng ký |
+| `POST` | `/api/v1/auth/resend-verification` | Gửi lại email xác thực |
 | `POST` | `/api/v1/auth/login` | UC-009 đăng nhập |
 | `POST` | `/api/v1/auth/forgot-password` | UC-009 quên mật khẩu |
 | `POST` | `/api/v1/auth/reset-password` | UC-009 tạo mật khẩu mới |

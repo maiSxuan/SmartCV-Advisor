@@ -6,7 +6,6 @@ import { apiService, getApiErrorMessage } from '../services/api';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [resetToken, setResetToken] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -19,15 +18,12 @@ export default function ForgotPasswordPage() {
       setSubmitting(true);
       const result = await apiService.forgotPassword(email);
       setStatusMessage(result.data.message);
-      setResetToken(result.data.demo_reset_token ?? '');
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
   }
-
-  const resetSearch = new URLSearchParams({ email, token: resetToken }).toString();
 
   return (
     <AuthLayout title="Đặt lại mật khẩu" subtitle="Nhập email tài khoản để nhận liên kết đặt lại mật khẩu">
@@ -62,15 +58,6 @@ export default function ForgotPasswordPage() {
           {submitting ? 'Đang gửi liên kết...' : 'Gửi liên kết đặt lại mật khẩu'}
         </button>
       </form>
-
-      {resetToken && (
-        <Link
-          className="mt-4 flex h-12 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 px-5 font-bold text-blue-600 hover:bg-blue-100"
-          to={`/reset-password?${resetSearch}`}
-        >
-          Mở liên kết đặt lại mật khẩu
-        </Link>
-      )}
 
       <div className="mt-6 text-center">
         <Link className="font-bold text-blue-600 hover:text-blue-700" to="/login">

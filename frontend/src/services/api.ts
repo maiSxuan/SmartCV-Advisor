@@ -263,7 +263,17 @@ export const apiService = {
     return response.data;
   },
 
-  forgotPassword: async (email: string): Promise<{ data: { message: string; demo_reset_token?: string | null; email_masked: string } }> => {
+  verifyEmail: async (token: string): Promise<{ data: { message: string } }> => {
+    const response = await apiClient.post('/auth/verify-email', { token });
+    return response.data;
+  },
+
+  resendVerification: async (email: string): Promise<{ data: { message: string } }> => {
+    const response = await apiClient.post('/auth/resend-verification', { email });
+    return response.data;
+  },
+
+  forgotPassword: async (email: string): Promise<{ data: { message: string; email_masked: string } }> => {
     const response = await apiClient.post('/auth/forgot-password', { email });
     return response.data;
   },
@@ -295,6 +305,8 @@ export const apiService = {
       limit: number | null;
       remaining: number | null;
       label: string;
+      auto_renew: boolean;
+      expires_at: string | null;
     };
   }> => {
     const response = await apiClient.get('/users/me/quota');
@@ -347,6 +359,25 @@ export const apiService = {
     formData.append('policy_version', payload.policyVersion ?? 'cv-processing-policy-v1');
 
     const response = await apiClient.post('/cvs', formData);
+    return response.data;
+  },
+
+  deleteCv: async (cvId: string): Promise<{
+    data: {
+      cv_id: string;
+      filename: string | null;
+      deleted_at: string;
+      cleanup: {
+        analyses: number;
+        suggestions: number;
+        feedback: number;
+        analytics_events: number;
+        usage_records_anonymized: number;
+      };
+    };
+    meta: { message: string };
+  }> => {
+    const response = await apiClient.delete(`/cvs/${cvId}`);
     return response.data;
   },
 
@@ -486,23 +517,6 @@ export const apiService = {
     return response.data;
   },
 
-  updateAdminUser: async (
-    userId: string,
-    payload: Partial<{
-      full_name: string;
-      email: string;
-      phone: string;
-      address: string;
-      account_type: 'registered' | 'premium' | 'admin';
-      industry_interest: string;
-      target_role: string;
-      current_level: string;
-    }>,
-  ): Promise<{ data: AdminUserSummary; meta: { message: string } }> => {
-    const response = await apiClient.patch(`/admin/users/${userId}`, payload);
-    return response.data;
-  },
-
   lockAdminUser: async (userId: string, reason: string): Promise<{ data: AdminUserSummary; meta: { message: string } }> => {
     const response = await apiClient.post(`/admin/users/${userId}/lock`, { reason });
     return response.data;
@@ -554,8 +568,11 @@ export const apiService = {
     return response.data;
   },
 
-  getAdminAnalytics: async (): Promise<{ data: AdminAnalyticsSummary }> => {
-    const response = await apiClient.get('/admin/analytics');
+  getAdminAnalytics: async (params?: {
+    date_from?: string;
+    date_to?: string;
+  }): Promise<{ data: AdminAnalyticsSummary }> => {
+    const response = await apiClient.get('/admin/analytics', { params });
     return response.data;
   },
 
@@ -607,6 +624,9 @@ export const apiService = {
 
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    if (!error.response) {
+      return 'Không thể kết nối máy chủ tại http://127.0.0.1:8000. Vui lòng kiểm tra backend đang chạy rồi thử lại.';
+    }
     const detail = error.response?.data?.detail;
     if (typeof detail?.message === 'string') {
       return typeof detail?.hint === 'string' ? `${detail.message} ${detail.hint}` : detail.message;
@@ -614,7 +634,16 @@ export function getApiErrorMessage(error: unknown): string {
     if (typeof detail === 'string') {
       return detail;
     }
-    return 'Không thể kết nối backend tại http://127.0.0.1:8000. Kiểm tra backend đang chạy, mở /api/health, hoặc restart backend để nhận cấu hình CORS mới.';
+    if (error.response.status === 503) {
+      return 'Dịch vụ đang tạm thời chưa sẵn sàng. Vui lòng chờ ít phút rồi thử lại.';
+    }
+    return `Yêu cầu không thành công (HTTP ${error.response.status}). Vui lòng thử lại.`;
   }
   return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+}
+
+export function getApiErrorCode(error: unknown): string | null {
+  if (!axios.isAxiosError(error)) return null;
+  const detail = error.response?.data?.detail;
+  return typeof detail?.code === 'string' ? detail.code : null;
 }

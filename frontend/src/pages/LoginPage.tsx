@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout';
-import { apiService, getApiErrorMessage, saveAuthSession } from '../services/api';
+import { apiService, getApiErrorCode, getApiErrorMessage, saveAuthSession } from '../services/api';
 
 function isValidEmail(email: string) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
@@ -12,18 +12,22 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState(searchParams.get('email') ?? '');
-  const justRegistered = searchParams.get('registered') === '1';
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [emailUnverified, setEmailUnverified] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
 
   const formIsValid = useMemo(() => isValidEmail(email) && password.length > 0, [email, password]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage('');
+    setEmailUnverified(false);
+    setVerificationMessage('');
     if (!formIsValid) {
       setErrorMessage('Vui lòng nhập email và mật khẩu hợp lệ.');
       return;
@@ -35,9 +39,25 @@ export default function LoginPage() {
       saveAuthSession(result.data);
       navigate(result.data.user.role === 'admin' ? '/admin/roles' : '/upload');
     } catch (error) {
+      setEmailUnverified(getApiErrorCode(error) === 'AUTH_EMAIL_UNVERIFIED');
       setErrorMessage(getApiErrorMessage(error));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!email || resendingVerification) return;
+    setResendingVerification(true);
+    setVerificationMessage('');
+    try {
+      const response = await apiService.resendVerification(email);
+      setVerificationMessage(response.data.message || 'Đã gửi lại liên kết xác thực. Vui lòng kiểm tra hộp thư.');
+      setErrorMessage('');
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error));
+    } finally {
+      setResendingVerification(false);
     }
   }
 
@@ -91,15 +111,25 @@ export default function LoginPage() {
           Ghi nhớ đăng nhập
         </label>
 
-        {justRegistered && !errorMessage && (
-          <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-            Đăng ký thành công. Bạn có thể đăng nhập ngay.
-          </div>
-        )}
-
         {errorMessage && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
             {errorMessage}
+            {emailUnverified && (
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={resendingVerification}
+                className="mt-2 block font-bold text-blue-600 hover:text-blue-700 disabled:text-blue-300"
+              >
+                {resendingVerification ? 'Đang gửi lại...' : 'Gửi lại email xác thực'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {verificationMessage && (
+          <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+            {verificationMessage}
           </div>
         )}
 

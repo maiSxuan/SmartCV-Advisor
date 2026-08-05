@@ -42,7 +42,7 @@ export default function AdminLayout({
     <div className="min-h-screen bg-[#eef3f8] text-slate-900">
       <aside className="fixed inset-y-0 left-0 hidden w-60 bg-[#111a2e] text-slate-300 lg:flex lg:flex-col">
         <Link to="/admin/roles" className="flex h-16 items-center gap-3 border-b border-white/10 px-5">
-          <span className="font-bold text-white">SmartCV Admin</span>
+          <span className="font-bold text-white">Quản trị SmartCV</span>
         </Link>
 
         <nav className="flex-1 space-y-3 px-3 py-5">

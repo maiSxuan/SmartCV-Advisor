@@ -56,7 +56,9 @@ async def get_profile(db: Any, user_id: str) -> dict[str, Any]:
                 detail={"code": "USER_NOT_FOUND", "message": "Không tìm thấy hồ sơ người dùng."},
             )
 
-        cvs = await db["CV"].find({"MaKH": user_id}).sort("NgayTaiLen", -1).limit(10).to_list(length=10)
+        # Return every CV owned by the user so the privacy screen can delete
+        # any uploaded file, not only the ten most recent ones.
+        cvs = await db["CV"].find({"MaKH": user_id}).sort("NgayTaiLen", -1).to_list(length=None)
         role_ids = sorted({cv.get("MaNganh") for cv in cvs if cv.get("MaNganh")})
         roles = await db["NGANHNGHIET"].find({"_id": {"$in": role_ids}}).to_list(length=len(role_ids))
         role_name_by_id = {role["_id"]: role.get("TenNganh") for role in roles}

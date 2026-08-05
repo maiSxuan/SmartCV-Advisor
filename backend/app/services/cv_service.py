@@ -13,6 +13,7 @@ from uuid import uuid4
 from zipfile import BadZipFile
 
 from fastapi import HTTPException, UploadFile, status
+from pymongo.errors import ConfigurationError, PyMongoError, ServerSelectionTimeoutError
 
 from app.services.gpt_service import (
     is_gpt_configured,
@@ -24,6 +25,7 @@ from app.services.gpt_service import (
 
 MAX_CV_SIZE_BYTES = 5 * 1024 * 1024
 CONSENT_POLICY_VERSION = "cv-processing-policy-v1"
+CV_DATABASE_ERRORS = (ConfigurationError, PyMongoError, ServerSelectionTimeoutError)
 
 
 def get_positive_int_env(name: str, default: int) -> int:
@@ -695,4 +697,109 @@ def public_cv_metadata(cv: dict[str, Any]) -> dict[str, Any]:
             "section_parser_model": extraction.get("section_parser_model"),
             "section_parser_prompt_version": extraction.get("section_parser_prompt_version"),
         },
+    }
+
+
+async def delete_owned_cv(db: Any, *, cv_id: str, user_id: str) -> dict[str, Any]:
+    """Delete a CV and all content derived from it for its owner.
+
+    ``LICHSUPTCV`` is also the immutable quota ledger. Its links to deleted
+    analyses are therefore anonymized instead of removing the rows, so deleting
+    a CV cannot restore Free-plan analysis turns.
+    """
+
+    try:
+        cv = await db["CV"].find_one(
+            {"_id": cv_id, "MaKH": user_id},
+            {"_id": 1, "TenFileGoc": 1},
+        )
+        if not cv:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "CV_NOT_FOUND",
+                    "message": "Không tìm thấy CV thuộc tài khoản hiện tại.",
+                },
+            )
+
+        analysis_documents = await db["KETQUA_PTCV"].find(
+            {"MaCV": cv_id},
+            {"_id": 1},
+        ).to_list(length=None)
+        analysis_ids = [document["_id"] for document in analysis_documents if document.get("_id")]
+        deleted_at = datetime.now(timezone.utc)
+
+        cleanup = {
+            "analyses": 0,
+            "suggestions": 0,
+            "feedback": 0,
+            "analytics_events": 0,
+            "usage_records_anonymized": 0,
+        }
+        if analysis_ids:
+            cleanup["suggestions"] = (
+                await db["GOIY_CAITHIEN"].delete_many({"MaKQ": {"$in": analysis_ids}})
+            ).deleted_count
+            cleanup["feedback"] = (
+                await db["DANHGIASP"].delete_many({"MaKQ": {"$in": analysis_ids}, "MaKH": user_id})
+            ).deleted_count
+            usage_result = await db["LICHSUPTCV"].update_many(
+                {"MaKQ": {"$in": analysis_ids}, "MaKH": user_id},
+                {
+                    "$set": {"CVDeleted": True, "DeletedAt": deleted_at},
+                    "$unset": {"MaKQ": ""},
+                },
+            )
+            cleanup["usage_records_anonymized"] = usage_result.modified_count
+
+        analytics_query: dict[str, Any] = {"MaKH": user_id, "MaCV": cv_id}
+        if analysis_ids:
+            analytics_query = {
+                "MaKH": user_id,
+                "$or": [
+                    {"MaCV": cv_id},
+                    {"MaKQ": {"$in": analysis_ids}},
+                ],
+            }
+        cleanup["analytics_events"] = (
+            await db["SUKIEN_SANPHAM"].delete_many(analytics_query)
+        ).deleted_count
+        if analysis_ids:
+            # Delete the analysis documents only after every dependent
+            # collection has been cleaned. This keeps retries idempotent if a
+            # database operation fails midway through the cascade.
+            cleanup["analyses"] = (
+                await db["KETQUA_PTCV"].delete_many({"_id": {"$in": analysis_ids}, "MaCV": cv_id})
+            ).deleted_count
+
+        # Remove upload logs containing the original filename before deleting
+        # the CV itself. Quota logs above contain no CV content or filename.
+        await db["LOG_KH"].delete_many(
+            {"MaKH": user_id, "DoiTuong": "CV", "MaDoiTuong": cv_id}
+        )
+        delete_result = await db["CV"].delete_one({"_id": cv_id, "MaKH": user_id})
+        if delete_result.deleted_count != 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "CV_DELETE_CONFLICT",
+                    "message": "CV đã thay đổi trong lúc xóa. Vui lòng tải lại trang và thử lại.",
+                },
+            )
+    except HTTPException:
+        raise
+    except CV_DATABASE_ERRORS as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "DATABASE_UNAVAILABLE",
+                "message": "Chưa thể xóa CV vì cơ sở dữ liệu chưa sẵn sàng.",
+            },
+        ) from exc
+
+    return {
+        "cv_id": cv_id,
+        "filename": cv.get("TenFileGoc"),
+        "deleted_at": deleted_at,
+        "cleanup": cleanup,
     }
